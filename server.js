@@ -132,6 +132,17 @@ async function submitVote(request, response, pollId) {
     return;
   }
 
+  const existingVote = await store.getVote(pollId, name);
+  if (existingVote) {
+    const payload = await store.getPayload(pollId);
+    sendJson(response, 409, {
+      ...payload,
+      alreadyVoted: true,
+      error: "This participant already submitted a vote."
+    });
+    return;
+  }
+
   const allowedSlotIds = new Set(poll.slots.map((slot) => slot.id));
   const choices = {};
   for (const slot of poll.slots) {

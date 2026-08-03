@@ -45,6 +45,11 @@ class JsonPollStore {
     };
   }
 
+  async getVote(pollId, name) {
+    const poll = await this.getPoll(pollId);
+    return poll?.votes?.[name] || null;
+  }
+
   async saveVote(pollId, vote) {
     const poll = await this.getPoll(pollId);
     if (!poll) return null;
@@ -111,14 +116,21 @@ class SupabasePollStore {
     };
   }
 
+  async getVote(pollId, name) {
+    const rows = await this.request(
+      `/${this.voteTable}?poll_id=eq.${encodeFilterValue(pollId)}&name=eq.${encodeFilterValue(name)}&select=*`
+    );
+    return rows[0] ? normalizeVoteRow(rows[0]) : null;
+  }
+
   async saveVote(pollId, vote) {
     const poll = await this.getPoll(pollId);
     if (!poll) return null;
 
     const updatedAt = new Date().toISOString();
-    await this.request(`/${this.voteTable}?on_conflict=poll_id,name`, {
+    await this.request(`/${this.voteTable}`, {
       method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      headers: { Prefer: "return=minimal" },
       body: JSON.stringify({
         poll_id: pollId,
         name: vote.name,

@@ -73,6 +73,9 @@ const I18N = {
     voteIncomplete: "請為每個時間選擇可以或無法",
     nameRequired: "請輸入姓名",
     voteSaved: "投票已儲存",
+    voteLocked: "你已送出回覆，這份投票不能再更改；可以直接查看結果",
+    voteAlreadySubmitted: "這個姓名已經送出過回覆，不能覆蓋原本選擇",
+    submittedVote: "已送出",
     invalidPoll: "投票連結無法讀取",
     syncFailed: "無法連線到同步伺服器，請確認後端服務正在執行",
     syncFallback: "同步伺服器未連線，已產生離線投票連結",
@@ -149,6 +152,9 @@ const I18N = {
     voteIncomplete: "Choose can or cannot for every time",
     nameRequired: "Add your name",
     voteSaved: "Vote saved",
+    voteLocked: "Your response has been submitted and can no longer be changed. You can view results directly.",
+    voteAlreadySubmitted: "This name has already submitted a response and cannot overwrite the original choices.",
+    submittedVote: "Submitted",
     invalidPoll: "This poll link cannot be read",
     syncFailed: "Cannot connect to the sync server. Make sure the backend is running.",
     syncFallback: "Sync server is offline. An offline voting link was created.",
@@ -433,6 +439,7 @@ const state = {
   shareUrl: "",
   choices: {},
   votes: [],
+  voteLocked: false,
   serverBacked: false,
   realtimeSource: null,
   timezoneRequired: false
@@ -546,6 +553,7 @@ function bindEvents() {
     state.pollEncoded = "";
     state.choices = {};
     state.votes = [];
+    state.voteLocked = false;
     state.serverBacked = false;
     renderAll();
   });
@@ -591,6 +599,7 @@ async function routeFromHash() {
     state.pollEncoded = "";
     state.choices = {};
     state.votes = [];
+    state.voteLocked = false;
     state.serverBacked = false;
     setView("create");
     renderAll();
@@ -602,8 +611,9 @@ async function routeFromHash() {
     if (isServerPollKey(encoded)) {
       const payload = await apiFetchPoll(encoded);
       applyRemotePayload(payload);
-      state.choices = {};
-      prepareVoteState();
+    state.choices = {};
+    state.voteLocked = false;
+    prepareVoteState();
       setView("vote");
       renderAll();
       connectRealtime();
@@ -617,6 +627,7 @@ async function routeFromHash() {
     state.shareUrl = getPollLink(poll);
     state.choices = {};
     state.votes = [];
+    state.voteLocked = false;
     state.serverBacked = false;
     prepareVoteState();
     setView("vote");
@@ -940,8 +951,8 @@ function prepareVoteState() {
   if (!state.poll) return;
   const lastName = localStorage.getItem(lastNameKey(state.poll.id)) || "";
   if (lastName) {
-    const votes = loadVotes();
-    state.choices = { ...(votes[lastName]?.choices || {}) };
+    els.participantName.value = lastName;
+    applyVoteForName(lastName);
   }
 }
 
@@ -951,7 +962,9 @@ function renderVote() {
   if (!els.participantName.value) {
     els.participantName.value = localStorage.getItem(lastNameKey(state.poll.id)) || "";
   }
+  applyVoteForName(els.participantName.value.trim(), false);
   const zone = state.profile?.timeZone || state.detectedTimeZone;
+  const disabled = state.voteLocked ? "disabled" : "";
   els.voteSlots.innerHTML = state.poll.slots
     .map((slot) => {
       const time = formatSlot(slot, zone);
@@ -963,24 +976,47 @@ function renderVote() {
             <small>${escapeHtml(time.sub)} · ${escapeHtml(t("slotDuration", { minutes: slot.duration }))}</small>
           </div>
           <div class="choice-group" role="group" aria-label="${escapeHtml(time.main)}">
-            <button class="choice-button ${choice === "yes" ? "is-selected" : ""}" type="button" data-slot-id="${escapeHtml(slot.id)}" data-choice="yes">${escapeHtml(t("canAttend"))}</button>
-            <button class="choice-button ${choice === "no" ? "is-selected" : ""}" type="button" data-slot-id="${escapeHtml(slot.id)}" data-choice="no">${escapeHtml(t("cannotAttend"))}</button>
+            <button class="choice-button ${choice === "yes" ? "is-selected" : ""}" type="button" data-slot-id="${escapeHtml(slot.id)}" data-choice="yes" ${disabled}>${escapeHtml(t("canAttend"))}</button>
+            <button class="choice-button ${choice === "no" ? "is-selected" : ""}" type="button" data-slot-id="${escapeHtml(slot.id)}" data-choice="no" ${disabled}>${escapeHtml(t("cannotAttend"))}</button>
           </div>
         </article>
       `;
     })
     .join("");
+  updateVoteControls();
 }
 
 function hydrateVoteForName() {
   if (!state.poll) return;
-  const name = els.participantName.value.trim();
-  const votes = loadVotes();
-  state.choices = { ...(votes[name]?.choices || {}) };
+  applyVoteForName(els.participantName.value.trim());
   renderVote();
 }
 
+function applyVoteForName(name, replaceChoices = true) {
+  const existingVote = getVoteByName(name);
+  state.voteLocked = Boolean(existingVote);
+  if (existingVote || replaceChoices) {
+    state.choices = { ...(existingVote?.choices || {}) };
+  }
+}
+
+function getVoteByName(name) {
+  if (!state.poll || !name) return null;
+  return loadVotes()[name] || null;
+}
+
+function updateVoteControls() {
+  els.submitVoteButton.disabled = state.voteLocked;
+  els.submitVoteButton.textContent = state.voteLocked ? t("submittedVote") : t("submitVote");
+  if (state.voteLocked) {
+    setMessage(els.voteMessage, t("voteLocked"), "success");
+  } else if ([t("voteLocked"), t("voteAlreadySubmitted")].includes(els.voteMessage.textContent)) {
+    setMessage(els.voteMessage, "", "");
+  }
+}
+
 function onVoteSlotClick(event) {
+  if (state.voteLocked) return;
   const button = event.target.closest("[data-slot-id][data-choice]");
   if (!button) return;
   state.choices[button.dataset.slotId] = button.dataset.choice;
@@ -996,6 +1032,18 @@ async function submitVote() {
     els.participantName.focus();
     return;
   }
+
+  const existingVote = getVoteByName(name);
+  if (existingVote) {
+    state.choices = { ...existingVote.choices };
+    state.voteLocked = true;
+    renderVote();
+    setMessage(els.voteMessage, t("voteAlreadySubmitted"), "success");
+    setView("results");
+    renderResults();
+    return;
+  }
+
   const incomplete = state.poll.slots.some((slot) => !state.choices[slot.id]);
   if (incomplete) {
     setMessage(els.voteMessage, t("voteIncomplete"), "error");
@@ -1020,6 +1068,15 @@ async function submitVote() {
       renderResults();
       return;
     } catch (error) {
+      if (error.status === 409 && error.payload?.alreadyVoted) {
+        applyRemotePayload(error.payload);
+        localStorage.setItem(lastNameKey(state.poll.id), name);
+        applyVoteForName(name);
+        setMessage(els.voteMessage, t("voteAlreadySubmitted"), "success");
+        setView("results");
+        renderResults();
+        return;
+      }
       setMessage(els.voteMessage, t("syncFailed"), "error");
       return;
     }
@@ -1400,7 +1457,10 @@ async function apiRequest(url, options = {}) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.error || "Request failed");
+    const error = new Error(payload.error || "Request failed");
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
   }
   return payload;
 }
