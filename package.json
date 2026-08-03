@@ -1,0 +1,12 @@
+{
+  "name": "gmt-rally",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A bilingual meeting time poll app with country-first GMT time zone conversion and realtime vote aggregation.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

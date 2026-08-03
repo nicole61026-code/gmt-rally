@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: gmt-rally
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_PROVIDER
+        value: supabase
+      - key: HOST
+        value: 0.0.0.0
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

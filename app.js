@@ -1,0 +1,1480 @@
+const STORAGE_KEYS = {
+  lang: "gmt-rally-lang",
+  profile: "gmt-rally-profile",
+  draft: "gmt-rally-draft"
+};
+
+const I18N = {
+  zh: {
+    brandSubtitle: "會議時間投票",
+    createEyebrow: "Create poll",
+    createTitle: "建立會議投票",
+    loadDemo: "範例",
+    detailsTitle: "會議內容",
+    topicLabel: "會議主題",
+    topicPlaceholder: "例如：跨區產品週會",
+    agendaLabel: "大綱內容",
+    agendaPlaceholder: "討論內容、決策項目、準備事項",
+    linkLabel: "會議連結",
+    linkPlaceholder: "https://meet.example.com/team",
+    timeComposerTitle: "候選會議時間",
+    changeTimezone: "變更時區",
+    dateLabel: "日期",
+    startTimeLabel: "開始時間",
+    durationLabel: "長度",
+    addTime: "加入",
+    createPoll: "產生投票連結",
+    resetForm: "清空",
+    shareLinkLabel: "投票連結",
+    copyLink: "複製",
+    openPoll: "開啟投票頁",
+    candidateTitle: "已選時間",
+    noSlots: "尚未加入候選時間",
+    newPoll: "建立新投票",
+    showResults: "結果",
+    participantTitle: "你的回覆",
+    nameLabel: "姓名",
+    namePlaceholder: "你的名字",
+    submitVote: "送出投票",
+    backToVote: "回到投票",
+    copyPollLink: "複製投票連結",
+    resultsTitle: "投票結果",
+    timezoneEyebrow: "Local time",
+    timezoneTitle: "請先選擇你的國家",
+    close: "關閉",
+    countrySearchLabel: "搜尋國家",
+    countrySearchPlaceholder: "輸入國家名稱，例如 Taiwan、Japan、台灣",
+    detected: "目前瀏覽器時區",
+    noTimezoneResults: "找不到符合的國家",
+    creatorTimezone: ({ country, zone, gmt }) => `建立者時區：${country} · ${zone} · ${gmt}`,
+    selectedTimezone: ({ country, gmt }) => `${gmt} · ${country}`,
+    slotDuration: ({ minutes }) => `${minutes} 分鐘`,
+    removeSlot: "移除時間",
+    canAttend: "可以",
+    cannotAttend: "無法",
+    meetingLink: "會議連結",
+    creatorLabel: "建立者",
+    localLabel: "你的當地時間",
+    votesLabel: ({ count }) => `${count} 份回覆`,
+    yesCount: ({ count }) => `${count} 可以`,
+    noCount: ({ count }) => `${count} 無法`,
+    availablePeople: "可以參加",
+    unavailablePeople: "無法參加",
+    timeColumn: "時間",
+    bestTimes: "最佳時間",
+    noVotes: "尚無投票",
+    copied: "已複製",
+    copyFailed: "無法自動複製，請手動選取連結",
+    titleRequired: "請輸入會議主題",
+    slotRequired: "請至少加入一個候選時間",
+    dateTimeRequired: "請選擇日期與開始時間",
+    duplicateSlot: "這個時間已經在清單中",
+    pollReady: "投票連結已產生",
+    voteIncomplete: "請為每個時間選擇可以或無法",
+    nameRequired: "請輸入姓名",
+    voteSaved: "投票已儲存",
+    invalidPoll: "投票連結無法讀取",
+    syncFailed: "無法連線到同步伺服器，請確認後端服務正在執行",
+    syncFallback: "同步伺服器未連線，已產生離線投票連結",
+    demoLoaded: "範例已載入",
+    formReset: "已清空",
+    untitledAgenda: "未填寫大綱",
+    untitledLink: "未提供連結"
+  },
+  en: {
+    brandSubtitle: "meeting time polls",
+    createEyebrow: "Create poll",
+    createTitle: "Create a meeting poll",
+    loadDemo: "Sample",
+    detailsTitle: "Meeting details",
+    topicLabel: "Meeting topic",
+    topicPlaceholder: "Example: Cross-region product sync",
+    agendaLabel: "Agenda",
+    agendaPlaceholder: "Discussion points, decisions, preparation notes",
+    linkLabel: "Meeting link",
+    linkPlaceholder: "https://meet.example.com/team",
+    timeComposerTitle: "Candidate meeting times",
+    changeTimezone: "Change time zone",
+    dateLabel: "Date",
+    startTimeLabel: "Start time",
+    durationLabel: "Length",
+    addTime: "Add",
+    createPoll: "Create voting link",
+    resetForm: "Clear",
+    shareLinkLabel: "Voting link",
+    copyLink: "Copy",
+    openPoll: "Open poll",
+    candidateTitle: "Selected times",
+    noSlots: "No candidate times yet",
+    newPoll: "New poll",
+    showResults: "Results",
+    participantTitle: "Your response",
+    nameLabel: "Name",
+    namePlaceholder: "Your name",
+    submitVote: "Submit vote",
+    backToVote: "Back to vote",
+    copyPollLink: "Copy poll link",
+    resultsTitle: "Results",
+    timezoneEyebrow: "Local time",
+    timezoneTitle: "Choose your country first",
+    close: "Close",
+    countrySearchLabel: "Search country",
+    countrySearchPlaceholder: "Type a country, for example Taiwan, Japan, United States",
+    detected: "Detected browser time zone",
+    noTimezoneResults: "No matching country",
+    creatorTimezone: ({ country, zone, gmt }) => `Creator time zone: ${country} · ${zone} · ${gmt}`,
+    selectedTimezone: ({ country, gmt }) => `${gmt} · ${country}`,
+    slotDuration: ({ minutes }) => `${minutes} min`,
+    removeSlot: "Remove time",
+    canAttend: "Can attend",
+    cannotAttend: "Cannot attend",
+    meetingLink: "Meeting link",
+    creatorLabel: "Creator",
+    localLabel: "Your local time",
+    votesLabel: ({ count }) => `${count} responses`,
+    yesCount: ({ count }) => `${count} can`,
+    noCount: ({ count }) => `${count} cannot`,
+    availablePeople: "Can attend",
+    unavailablePeople: "Cannot attend",
+    timeColumn: "Time",
+    bestTimes: "Best times",
+    noVotes: "No votes yet",
+    copied: "Copied",
+    copyFailed: "Could not copy automatically. Select the link manually.",
+    titleRequired: "Add a meeting topic",
+    slotRequired: "Add at least one candidate time",
+    dateTimeRequired: "Choose a date and start time",
+    duplicateSlot: "That time is already on the list",
+    pollReady: "Voting link created",
+    voteIncomplete: "Choose can or cannot for every time",
+    nameRequired: "Add your name",
+    voteSaved: "Vote saved",
+    invalidPoll: "This poll link cannot be read",
+    syncFailed: "Cannot connect to the sync server. Make sure the backend is running.",
+    syncFallback: "Sync server is offline. An offline voting link was created.",
+    demoLoaded: "Sample loaded",
+    formReset: "Cleared",
+    untitledAgenda: "No agenda",
+    untitledLink: "No link"
+  }
+};
+
+const COUNTRY_ZONES = [
+  ["AF", "Asia/Kabul"],
+  ["AX", "Europe/Mariehamn"],
+  ["AL", "Europe/Tirane"],
+  ["DZ", "Africa/Algiers"],
+  ["AS", "Pacific/Pago_Pago"],
+  ["AD", "Europe/Andorra"],
+  ["AO", "Africa/Luanda"],
+  ["AI", "America/Anguilla"],
+  ["AQ", "Antarctica/Casey|Antarctica/Davis|Antarctica/DumontDUrville|Antarctica/Mawson|Antarctica/McMurdo|Antarctica/Palmer|Antarctica/Rothera|Antarctica/Syowa|Antarctica/Troll|Antarctica/Vostok"],
+  ["AG", "America/Antigua"],
+  ["AR", "America/Argentina/Buenos_Aires|America/Argentina/Catamarca|America/Argentina/Cordoba|America/Argentina/Jujuy|America/Argentina/La_Rioja|America/Argentina/Mendoza|America/Argentina/Rio_Gallegos|America/Argentina/Salta|America/Argentina/San_Juan|America/Argentina/San_Luis|America/Argentina/Tucuman|America/Argentina/Ushuaia"],
+  ["AM", "Asia/Yerevan"],
+  ["AW", "America/Aruba"],
+  ["AU", "Australia/Adelaide|Australia/Brisbane|Australia/Broken_Hill|Australia/Darwin|Australia/Eucla|Australia/Hobart|Australia/Lindeman|Australia/Lord_Howe|Australia/Melbourne|Australia/Perth|Australia/Sydney"],
+  ["AT", "Europe/Vienna"],
+  ["AZ", "Asia/Baku"],
+  ["BS", "America/Nassau"],
+  ["BH", "Asia/Bahrain"],
+  ["BD", "Asia/Dhaka"],
+  ["BB", "America/Barbados"],
+  ["BY", "Europe/Minsk"],
+  ["BE", "Europe/Brussels"],
+  ["BZ", "America/Belize"],
+  ["BJ", "Africa/Porto-Novo"],
+  ["BM", "Atlantic/Bermuda"],
+  ["BT", "Asia/Thimphu"],
+  ["BO", "America/La_Paz"],
+  ["BQ", "America/Kralendijk"],
+  ["BA", "Europe/Sarajevo"],
+  ["BW", "Africa/Gaborone"],
+  ["BR", "America/Araguaina|America/Bahia|America/Belem|America/Boa_Vista|America/Campo_Grande|America/Cuiaba|America/Eirunepe|America/Fortaleza|America/Maceio|America/Manaus|America/Noronha|America/Porto_Velho|America/Recife|America/Rio_Branco|America/Santarem|America/Sao_Paulo"],
+  ["IO", "Indian/Chagos"],
+  ["VG", "America/Tortola"],
+  ["BN", "Asia/Brunei"],
+  ["BG", "Europe/Sofia"],
+  ["BF", "Africa/Ouagadougou"],
+  ["BI", "Africa/Bujumbura"],
+  ["CV", "Atlantic/Cape_Verde"],
+  ["KH", "Asia/Phnom_Penh"],
+  ["CM", "Africa/Douala"],
+  ["CA", "America/Atikokan|America/Cambridge_Bay|America/Creston|America/Dawson|America/Edmonton|America/Fort_Nelson|America/Glace_Bay|America/Goose_Bay|America/Halifax|America/Inuvik|America/Iqaluit|America/Moncton|America/Rankin_Inlet|America/Regina|America/Resolute|America/St_Johns|America/Swift_Current|America/Toronto|America/Vancouver|America/Whitehorse|America/Winnipeg|America/Yellowknife"],
+  ["KY", "America/Cayman"],
+  ["CF", "Africa/Bangui"],
+  ["TD", "Africa/Ndjamena"],
+  ["CL", "America/Punta_Arenas|America/Santiago|Pacific/Easter"],
+  ["CN", "Asia/Shanghai|Asia/Urumqi"],
+  ["CX", "Indian/Christmas"],
+  ["CC", "Indian/Cocos"],
+  ["CO", "America/Bogota"],
+  ["KM", "Indian/Comoro"],
+  ["CG", "Africa/Brazzaville"],
+  ["CD", "Africa/Kinshasa|Africa/Lubumbashi"],
+  ["CK", "Pacific/Rarotonga"],
+  ["CR", "America/Costa_Rica"],
+  ["CI", "Africa/Abidjan"],
+  ["HR", "Europe/Zagreb"],
+  ["CU", "America/Havana"],
+  ["CW", "America/Curacao"],
+  ["CY", "Asia/Famagusta|Asia/Nicosia"],
+  ["CZ", "Europe/Prague"],
+  ["DK", "Europe/Copenhagen"],
+  ["DJ", "Africa/Djibouti"],
+  ["DM", "America/Dominica"],
+  ["DO", "America/Santo_Domingo"],
+  ["EC", "America/Guayaquil|Pacific/Galapagos"],
+  ["EG", "Africa/Cairo"],
+  ["SV", "America/El_Salvador"],
+  ["GQ", "Africa/Malabo"],
+  ["ER", "Africa/Asmara"],
+  ["EE", "Europe/Tallinn"],
+  ["SZ", "Africa/Mbabane"],
+  ["ET", "Africa/Addis_Ababa"],
+  ["FK", "Atlantic/Stanley"],
+  ["FO", "Atlantic/Faroe"],
+  ["FJ", "Pacific/Fiji"],
+  ["FI", "Europe/Helsinki"],
+  ["FR", "Europe/Paris"],
+  ["GF", "America/Cayenne"],
+  ["PF", "Pacific/Gambier|Pacific/Marquesas|Pacific/Tahiti"],
+  ["TF", "Indian/Kerguelen"],
+  ["GA", "Africa/Libreville"],
+  ["GM", "Africa/Banjul"],
+  ["GE", "Asia/Tbilisi"],
+  ["DE", "Europe/Berlin|Europe/Busingen"],
+  ["GH", "Africa/Accra"],
+  ["GI", "Europe/Gibraltar"],
+  ["GR", "Europe/Athens"],
+  ["GL", "America/Danmarkshavn|America/Nuuk|America/Scoresbysund|America/Thule"],
+  ["GD", "America/Grenada"],
+  ["GP", "America/Guadeloupe"],
+  ["GU", "Pacific/Guam"],
+  ["GT", "America/Guatemala"],
+  ["GG", "Europe/Guernsey"],
+  ["GN", "Africa/Conakry"],
+  ["GW", "Africa/Bissau"],
+  ["GY", "America/Guyana"],
+  ["HT", "America/Port-au-Prince"],
+  ["VA", "Europe/Vatican"],
+  ["HN", "America/Tegucigalpa"],
+  ["HK", "Asia/Hong_Kong"],
+  ["HU", "Europe/Budapest"],
+  ["IS", "Atlantic/Reykjavik"],
+  ["IN", "Asia/Kolkata"],
+  ["ID", "Asia/Jakarta|Asia/Jayapura|Asia/Makassar|Asia/Pontianak"],
+  ["IR", "Asia/Tehran"],
+  ["IQ", "Asia/Baghdad"],
+  ["IE", "Europe/Dublin"],
+  ["IM", "Europe/Isle_of_Man"],
+  ["IL", "Asia/Jerusalem"],
+  ["IT", "Europe/Rome"],
+  ["JM", "America/Jamaica"],
+  ["JP", "Asia/Tokyo"],
+  ["JE", "Europe/Jersey"],
+  ["JO", "Asia/Amman"],
+  ["KZ", "Asia/Almaty|Asia/Aqtau|Asia/Aqtobe|Asia/Atyrau|Asia/Oral|Asia/Qostanay|Asia/Qyzylorda"],
+  ["KE", "Africa/Nairobi"],
+  ["KI", "Pacific/Enderbury|Pacific/Kiritimati|Pacific/Tarawa"],
+  ["KP", "Asia/Pyongyang"],
+  ["KR", "Asia/Seoul"],
+  ["XK", "Europe/Belgrade"],
+  ["KW", "Asia/Kuwait"],
+  ["KG", "Asia/Bishkek"],
+  ["LA", "Asia/Vientiane"],
+  ["LV", "Europe/Riga"],
+  ["LB", "Asia/Beirut"],
+  ["LS", "Africa/Maseru"],
+  ["LR", "Africa/Monrovia"],
+  ["LY", "Africa/Tripoli"],
+  ["LI", "Europe/Vaduz"],
+  ["LT", "Europe/Vilnius"],
+  ["LU", "Europe/Luxembourg"],
+  ["MO", "Asia/Macau"],
+  ["MG", "Indian/Antananarivo"],
+  ["MW", "Africa/Blantyre"],
+  ["MY", "Asia/Kuala_Lumpur|Asia/Kuching"],
+  ["MV", "Indian/Maldives"],
+  ["ML", "Africa/Bamako"],
+  ["MT", "Europe/Malta"],
+  ["MH", "Pacific/Kwajalein|Pacific/Majuro"],
+  ["MQ", "America/Martinique"],
+  ["MR", "Africa/Nouakchott"],
+  ["MU", "Indian/Mauritius"],
+  ["YT", "Indian/Mayotte"],
+  ["MX", "America/Bahia_Banderas|America/Cancun|America/Chihuahua|America/Hermosillo|America/Matamoros|America/Mazatlan|America/Merida|America/Mexico_City|America/Monterrey|America/Ojinaga|America/Tijuana"],
+  ["FM", "Pacific/Chuuk|Pacific/Kosrae|Pacific/Pohnpei"],
+  ["MD", "Europe/Chisinau"],
+  ["MC", "Europe/Monaco"],
+  ["MN", "Asia/Choibalsan|Asia/Hovd|Asia/Ulaanbaatar"],
+  ["ME", "Europe/Podgorica"],
+  ["MS", "America/Montserrat"],
+  ["MA", "Africa/Casablanca"],
+  ["MZ", "Africa/Maputo"],
+  ["MM", "Asia/Yangon"],
+  ["NA", "Africa/Windhoek"],
+  ["NR", "Pacific/Nauru"],
+  ["NP", "Asia/Kathmandu"],
+  ["NL", "Europe/Amsterdam"],
+  ["NC", "Pacific/Noumea"],
+  ["NZ", "Pacific/Auckland|Pacific/Chatham"],
+  ["NI", "America/Managua"],
+  ["NE", "Africa/Niamey"],
+  ["NG", "Africa/Lagos"],
+  ["NU", "Pacific/Niue"],
+  ["NF", "Pacific/Norfolk"],
+  ["MK", "Europe/Skopje"],
+  ["MP", "Pacific/Saipan"],
+  ["NO", "Europe/Oslo"],
+  ["OM", "Asia/Muscat"],
+  ["PK", "Asia/Karachi"],
+  ["PW", "Pacific/Palau"],
+  ["PS", "Asia/Gaza|Asia/Hebron"],
+  ["PA", "America/Panama"],
+  ["PG", "Pacific/Bougainville|Pacific/Port_Moresby"],
+  ["PY", "America/Asuncion"],
+  ["PE", "America/Lima"],
+  ["PH", "Asia/Manila"],
+  ["PN", "Pacific/Pitcairn"],
+  ["PL", "Europe/Warsaw"],
+  ["PT", "Atlantic/Azores|Atlantic/Madeira|Europe/Lisbon"],
+  ["PR", "America/Puerto_Rico"],
+  ["QA", "Asia/Qatar"],
+  ["RE", "Indian/Reunion"],
+  ["RO", "Europe/Bucharest"],
+  ["RU", "Asia/Anadyr|Asia/Barnaul|Asia/Chita|Asia/Irkutsk|Asia/Kamchatka|Asia/Khandyga|Asia/Krasnoyarsk|Asia/Magadan|Asia/Novokuznetsk|Asia/Novosibirsk|Asia/Omsk|Asia/Sakhalin|Asia/Srednekolymsk|Asia/Tomsk|Asia/Ust-Nera|Asia/Vladivostok|Asia/Yakutsk|Asia/Yekaterinburg|Europe/Astrakhan|Europe/Kaliningrad|Europe/Kirov|Europe/Moscow|Europe/Samara|Europe/Saratov|Europe/Ulyanovsk|Europe/Volgograd"],
+  ["RW", "Africa/Kigali"],
+  ["BL", "America/St_Barthelemy"],
+  ["SH", "Atlantic/St_Helena"],
+  ["KN", "America/St_Kitts"],
+  ["LC", "America/St_Lucia"],
+  ["MF", "America/Marigot"],
+  ["PM", "America/Miquelon"],
+  ["VC", "America/St_Vincent"],
+  ["WS", "Pacific/Apia"],
+  ["SM", "Europe/San_Marino"],
+  ["ST", "Africa/Sao_Tome"],
+  ["SA", "Asia/Riyadh"],
+  ["SN", "Africa/Dakar"],
+  ["RS", "Europe/Belgrade"],
+  ["SC", "Indian/Mahe"],
+  ["SL", "Africa/Freetown"],
+  ["SG", "Asia/Singapore"],
+  ["SX", "America/Lower_Princes"],
+  ["SK", "Europe/Bratislava"],
+  ["SI", "Europe/Ljubljana"],
+  ["SB", "Pacific/Guadalcanal"],
+  ["SO", "Africa/Mogadishu"],
+  ["ZA", "Africa/Johannesburg"],
+  ["GS", "Atlantic/South_Georgia"],
+  ["SS", "Africa/Juba"],
+  ["ES", "Africa/Ceuta|Atlantic/Canary|Europe/Madrid"],
+  ["LK", "Asia/Colombo"],
+  ["SD", "Africa/Khartoum"],
+  ["SR", "America/Paramaribo"],
+  ["SJ", "Europe/Oslo"],
+  ["SE", "Europe/Stockholm"],
+  ["CH", "Europe/Zurich"],
+  ["SY", "Asia/Damascus"],
+  ["TW", "Asia/Taipei"],
+  ["TJ", "Asia/Dushanbe"],
+  ["TZ", "Africa/Dar_es_Salaam"],
+  ["TH", "Asia/Bangkok"],
+  ["TL", "Asia/Dili"],
+  ["TG", "Africa/Lome"],
+  ["TK", "Pacific/Fakaofo"],
+  ["TO", "Pacific/Tongatapu"],
+  ["TT", "America/Port_of_Spain"],
+  ["TN", "Africa/Tunis"],
+  ["TR", "Europe/Istanbul"],
+  ["TM", "Asia/Ashgabat"],
+  ["TC", "America/Grand_Turk"],
+  ["TV", "Pacific/Funafuti"],
+  ["UG", "Africa/Kampala"],
+  ["UA", "Europe/Kyiv|Europe/Simferopol"],
+  ["AE", "Asia/Dubai"],
+  ["GB", "Europe/London"],
+  ["US", "America/Adak|America/Anchorage|America/Boise|America/Chicago|America/Denver|America/Detroit|America/Indiana/Indianapolis|America/Indiana/Knox|America/Indiana/Marengo|America/Indiana/Petersburg|America/Indiana/Tell_City|America/Indiana/Vevay|America/Indiana/Vincennes|America/Indiana/Winamac|America/Juneau|America/Kentucky/Louisville|America/Kentucky/Monticello|America/Los_Angeles|America/Menominee|America/Metlakatla|America/New_York|America/Nome|America/North_Dakota/Beulah|America/North_Dakota/Center|America/North_Dakota/New_Salem|America/Phoenix|America/Sitka|America/Yakutat|Pacific/Honolulu"],
+  ["UM", "Pacific/Midway|Pacific/Wake"],
+  ["VI", "America/St_Thomas"],
+  ["UY", "America/Montevideo"],
+  ["UZ", "Asia/Samarkand|Asia/Tashkent"],
+  ["VU", "Pacific/Efate"],
+  ["VE", "America/Caracas"],
+  ["VN", "Asia/Ho_Chi_Minh"],
+  ["WF", "Pacific/Wallis"],
+  ["EH", "Africa/El_Aaiun"],
+  ["YE", "Asia/Aden"],
+  ["ZM", "Africa/Lusaka"],
+  ["ZW", "Africa/Harare"]
+];
+
+const REGION_FALLBACKS = {
+  XK: { zh: "科索沃", en: "Kosovo" }
+};
+
+const ZONE_FALLBACKS = {
+  "Europe/Kyiv": "Europe/Kiev",
+  "America/Nuuk": "America/Godthab",
+  "Asia/Yangon": "Asia/Rangoon",
+  "Pacific/Pohnpei": "Pacific/Ponape",
+  "Asia/Ho_Chi_Minh": "Asia/Saigon"
+};
+
+const state = {
+  lang: "zh",
+  profile: null,
+  countryOptions: [],
+  detectedTimeZone: "UTC",
+  slots: [],
+  poll: null,
+  pollEncoded: "",
+  shareUrl: "",
+  choices: {},
+  votes: [],
+  serverBacked: false,
+  realtimeSource: null,
+  timezoneRequired: false
+};
+
+const els = {};
+
+document.addEventListener("DOMContentLoaded", init);
+
+async function init() {
+  cacheElements();
+  state.detectedTimeZone = getDetectedTimeZone();
+  state.countryOptions = buildCountryOptions();
+  state.lang = loadLanguage();
+  state.profile = loadProfile();
+  state.slots = loadDraftSlots();
+  bindEvents();
+  applyI18n();
+  await routeFromHash();
+  setDefaultSlotInputs();
+  renderAll();
+  if (!state.profile) {
+    openTimezoneGate(true);
+  }
+}
+
+function cacheElements() {
+  const ids = [
+    "profileButton",
+    "profileLabel",
+    "creatorTimezoneLabel",
+    "participantTimezoneLabel",
+    "resultsTimezoneLabel",
+    "composerTimezoneText",
+    "changeCreatorTimezoneButton",
+    "changeParticipantTimezoneButton",
+    "timezoneGate",
+    "timezoneSearch",
+    "timezoneResults",
+    "closeTimezoneButton",
+    "meetingTitle",
+    "meetingAgenda",
+    "meetingUrl",
+    "slotDate",
+    "slotTime",
+    "slotDuration",
+    "addSlotButton",
+    "slotList",
+    "slotCount",
+    "createPollButton",
+    "resetFormButton",
+    "createMessage",
+    "shareBox",
+    "shareLink",
+    "copyLinkButton",
+    "openPollButton",
+    "loadDemoButton",
+    "createView",
+    "voteView",
+    "resultsView",
+    "newPollButton",
+    "showResultsButton",
+    "backToVoteButton",
+    "copyPollLinkButton",
+    "pollMeta",
+    "resultsMeta",
+    "participantName",
+    "voteSlots",
+    "voteMessage",
+    "submitVoteButton",
+    "bestList",
+    "resultsTableHead",
+    "resultsTableBody"
+  ];
+  ids.forEach((id) => {
+    els[id] = document.getElementById(id);
+  });
+}
+
+function bindEvents() {
+  document.querySelectorAll("[data-lang]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.lang = button.dataset.lang;
+      localStorage.setItem(STORAGE_KEYS.lang, state.lang);
+      applyI18n();
+      renderAll();
+    });
+  });
+
+  els.profileButton.addEventListener("click", () => openTimezoneGate(false));
+  els.changeCreatorTimezoneButton.addEventListener("click", () => openTimezoneGate(false));
+  els.changeParticipantTimezoneButton.addEventListener("click", () => openTimezoneGate(false));
+  els.closeTimezoneButton.addEventListener("click", closeTimezoneGate);
+  els.timezoneSearch.addEventListener("input", renderTimezoneResults);
+  els.timezoneResults.addEventListener("click", onTimezoneOptionClick);
+  els.addSlotButton.addEventListener("click", addSlot);
+  els.slotList.addEventListener("click", onSlotListClick);
+  els.createPollButton.addEventListener("click", createPoll);
+  els.resetFormButton.addEventListener("click", resetForm);
+  els.copyLinkButton.addEventListener("click", () => copyText(state.shareUrl, els.createMessage));
+  els.openPollButton.addEventListener("click", () => {
+    if (state.pollEncoded) {
+      window.location.hash = `poll=${state.pollEncoded}`;
+    }
+  });
+  els.loadDemoButton.addEventListener("click", loadDemo);
+  els.newPollButton.addEventListener("click", () => {
+    closeRealtime();
+    window.location.hash = "";
+    state.poll = null;
+    state.pollEncoded = "";
+    state.choices = {};
+    state.votes = [];
+    state.serverBacked = false;
+    renderAll();
+  });
+  els.showResultsButton.addEventListener("click", () => {
+    setView("results");
+    renderResults();
+  });
+  els.backToVoteButton.addEventListener("click", () => {
+    setView("vote");
+    renderVote();
+  });
+  els.copyPollLinkButton.addEventListener("click", () => copyText(getPollLink(state.poll), null));
+  els.voteSlots.addEventListener("click", onVoteSlotClick);
+  els.submitVoteButton.addEventListener("click", submitVote);
+  els.participantName.addEventListener("change", hydrateVoteForName);
+  window.addEventListener("hashchange", () => routeFromHash());
+}
+
+function applyI18n() {
+  document.documentElement.lang = state.lang === "zh" ? "zh-Hant" : "en";
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    node.textContent = t(node.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
+    node.setAttribute("placeholder", t(node.dataset.i18nPlaceholder));
+  });
+  document.querySelectorAll("[data-lang]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.lang === state.lang);
+  });
+}
+
+function t(key, params = {}) {
+  const value = I18N[state.lang]?.[key] ?? I18N.en[key] ?? key;
+  return typeof value === "function" ? value(params) : value;
+}
+
+async function routeFromHash() {
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const encoded = params.get("poll");
+  if (!encoded) {
+    closeRealtime();
+    state.poll = null;
+    state.pollEncoded = "";
+    state.choices = {};
+    state.votes = [];
+    state.serverBacked = false;
+    setView("create");
+    renderAll();
+    return;
+  }
+
+  try {
+    closeRealtime();
+    if (isServerPollKey(encoded)) {
+      const payload = await apiFetchPoll(encoded);
+      applyRemotePayload(payload);
+      state.choices = {};
+      prepareVoteState();
+      setView("vote");
+      renderAll();
+      connectRealtime();
+      return;
+    }
+
+    const poll = decodePoll(encoded);
+    validatePoll(poll);
+    state.poll = poll;
+    state.pollEncoded = encoded;
+    state.shareUrl = getPollLink(poll);
+    state.choices = {};
+    state.votes = [];
+    state.serverBacked = false;
+    prepareVoteState();
+    setView("vote");
+    renderAll();
+  } catch (error) {
+    closeRealtime();
+    state.serverBacked = false;
+    setView("create");
+    setMessage(els.createMessage, t("invalidPoll"), "error");
+  }
+}
+
+function setView(name) {
+  els.createView.classList.toggle("is-active", name === "create");
+  els.voteView.classList.toggle("is-active", name === "vote");
+  els.resultsView.classList.toggle("is-active", name === "results");
+}
+
+function renderAll() {
+  renderProfileLabels();
+  renderCreatorForm();
+  renderSlotList();
+  renderTimezoneResults();
+  if (state.poll) {
+    renderPollMeta(els.pollMeta, false);
+    renderVote();
+    renderResults();
+  }
+}
+
+function renderProfileLabels() {
+  const profile = state.profile;
+  const label = profile
+    ? t("selectedTimezone", {
+        country: getCountryName(profile.countryCode),
+        gmt: formatGmtOffset(profile.timeZone, new Date())
+      })
+    : "GMT";
+  els.profileLabel.textContent = label;
+  [els.creatorTimezoneLabel, els.participantTimezoneLabel, els.resultsTimezoneLabel].forEach((node) => {
+    node.textContent = label;
+  });
+
+  if (profile) {
+    els.composerTimezoneText.textContent = t("creatorTimezone", {
+      country: getCountryName(profile.countryCode),
+      zone: getZoneLabel(profile.timeZone),
+      gmt: formatGmtOffset(profile.timeZone, new Date())
+    });
+  } else {
+    els.composerTimezoneText.textContent = "GMT";
+  }
+}
+
+function renderCreatorForm() {
+  const draft = loadDraft();
+  if (document.activeElement !== els.meetingTitle && !els.meetingTitle.value) {
+    els.meetingTitle.value = draft.title || "";
+  }
+  if (document.activeElement !== els.meetingAgenda && !els.meetingAgenda.value) {
+    els.meetingAgenda.value = draft.agenda || "";
+  }
+  if (document.activeElement !== els.meetingUrl && !els.meetingUrl.value) {
+    els.meetingUrl.value = draft.meetingUrl || "";
+  }
+  els.shareBox.hidden = !state.shareUrl;
+  els.shareLink.value = state.shareUrl;
+}
+
+function renderSlotList() {
+  els.slotCount.textContent = String(state.slots.length);
+  if (!state.slots.length) {
+    els.slotList.innerHTML = `<div class="empty-state">${escapeHtml(t("noSlots"))}</div>`;
+    return;
+  }
+
+  const zone = state.profile?.timeZone || state.detectedTimeZone;
+  els.slotList.innerHTML = state.slots
+    .map((slot) => {
+      const time = formatSlot(slot, zone);
+      return `
+        <article class="slot-card">
+          <div>
+            <strong>${escapeHtml(time.main)}</strong>
+            <small>${escapeHtml(time.sub)} · ${escapeHtml(t("slotDuration", { minutes: slot.duration }))}</small>
+          </div>
+          <button class="ghost-button delete-slot" type="button" data-delete-slot="${escapeHtml(slot.id)}" aria-label="${escapeHtml(t("removeSlot"))}">×</button>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function openTimezoneGate(required) {
+  state.timezoneRequired = required || !state.profile;
+  els.closeTimezoneButton.hidden = state.timezoneRequired;
+  els.timezoneGate.hidden = false;
+  els.timezoneSearch.value = "";
+  renderTimezoneResults();
+  window.setTimeout(() => els.timezoneSearch.focus(), 0);
+}
+
+function closeTimezoneGate() {
+  if (state.timezoneRequired && !state.profile) return;
+  els.timezoneGate.hidden = true;
+}
+
+function renderTimezoneResults() {
+  if (!els.timezoneResults) return;
+  const query = normalizeSearch(els.timezoneSearch.value);
+  const now = new Date();
+  let options = state.countryOptions.map((option) => {
+    const country = getCountryName(option.countryCode);
+    const englishCountry = getCountryName(option.countryCode, "en");
+    const zone = getZoneLabel(option.timeZone);
+    const gmt = formatGmtOffset(option.timeZone, now);
+    const search = normalizeSearch(`${country} ${englishCountry} ${option.countryCode} ${zone} ${option.timeZone} ${gmt}`);
+    return { ...option, country, zone, gmt, search };
+  });
+
+  if (query) {
+    options = options.filter((option) => option.search.includes(query));
+  }
+
+  options.sort((a, b) => {
+    const detectedA = a.timeZone === state.detectedTimeZone ? -1 : 0;
+    const detectedB = b.timeZone === state.detectedTimeZone ? -1 : 0;
+    if (detectedA !== detectedB) return detectedA - detectedB;
+    return a.country.localeCompare(b.country, state.lang === "zh" ? "zh-Hant" : "en");
+  });
+
+  if (!options.length) {
+    els.timezoneResults.innerHTML = `<div class="empty-state">${escapeHtml(t("noTimezoneResults"))}</div>`;
+    return;
+  }
+
+  els.timezoneResults.innerHTML = options
+    .map((option) => {
+      const isDetected = option.timeZone === state.detectedTimeZone;
+      const detected = isDetected ? `<small class="timezone-city">${escapeHtml(t("detected"))}</small>` : "";
+      return `
+        <button class="timezone-option ${isDetected ? "is-detected" : ""}" type="button" role="option" data-country="${escapeHtml(option.countryCode)}" data-zone="${escapeHtml(option.timeZone)}">
+          <span>
+            <span class="timezone-country">${escapeHtml(option.country)}</span>
+            <span class="timezone-city">${escapeHtml(option.zone)}</span>
+            ${detected}
+          </span>
+          <span class="timezone-offset">${escapeHtml(option.gmt)}</span>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function onTimezoneOptionClick(event) {
+  const button = event.target.closest("[data-zone]");
+  if (!button) return;
+  state.profile = {
+    countryCode: button.dataset.country,
+    timeZone: button.dataset.zone
+  };
+  localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(state.profile));
+  if (!els.slotDate.value) {
+    setDefaultSlotInputs();
+  }
+  closeTimezoneGate();
+  renderAll();
+}
+
+function addSlot() {
+  if (!requireProfile()) return;
+  const date = els.slotDate.value;
+  const time = els.slotTime.value;
+  const duration = Number(els.slotDuration.value);
+  if (!date || !time) {
+    setMessage(els.createMessage, t("dateTimeRequired"), "error");
+    return;
+  }
+
+  const start = zonedTimeToUtc(date, time, state.profile.timeZone);
+  const startUtc = start.toISOString();
+  const duplicate = state.slots.some((slot) => slot.startUtc === startUtc && slot.duration === duration);
+  if (duplicate) {
+    setMessage(els.createMessage, t("duplicateSlot"), "error");
+    return;
+  }
+
+  state.slots.push({
+    id: createId("slot"),
+    startUtc,
+    duration
+  });
+  state.slots.sort((a, b) => new Date(a.startUtc) - new Date(b.startUtc));
+  saveDraft();
+  setMessage(els.createMessage, "", "");
+  renderSlotList();
+}
+
+function onSlotListClick(event) {
+  const button = event.target.closest("[data-delete-slot]");
+  if (!button) return;
+  state.slots = state.slots.filter((slot) => slot.id !== button.dataset.deleteSlot);
+  saveDraft();
+  renderSlotList();
+}
+
+async function createPoll() {
+  if (!requireProfile()) return;
+  const title = els.meetingTitle.value.trim();
+  if (!title) {
+    setMessage(els.createMessage, t("titleRequired"), "error");
+    els.meetingTitle.focus();
+    return;
+  }
+  if (!state.slots.length) {
+    setMessage(els.createMessage, t("slotRequired"), "error");
+    return;
+  }
+
+  const meetingUrl = normalizeMeetingUrl(els.meetingUrl.value);
+  const poll = {
+    version: 1,
+    id: createId("poll"),
+    title,
+    agenda: els.meetingAgenda.value.trim(),
+    meetingUrl,
+    creator: { ...state.profile },
+    slots: state.slots.map((slot) => ({ ...slot })),
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    const payload = await apiCreatePoll(poll);
+    closeRealtime();
+    applyRemotePayload(payload);
+    connectRealtime();
+  } catch (error) {
+    state.poll = poll;
+    state.pollEncoded = encodePoll(poll);
+    state.votes = [];
+    state.serverBacked = false;
+    state.shareUrl = getPollLink(poll);
+    setMessage(els.createMessage, t("syncFallback"), "error");
+  }
+
+  els.shareLink.value = state.shareUrl;
+  els.shareBox.hidden = false;
+  if (state.serverBacked) {
+    setMessage(els.createMessage, t("pollReady"), "success");
+  }
+  saveDraft();
+}
+
+function resetForm() {
+  closeRealtime();
+  state.slots = [];
+  state.shareUrl = "";
+  state.pollEncoded = "";
+  state.poll = null;
+  state.votes = [];
+  state.serverBacked = false;
+  els.meetingTitle.value = "";
+  els.meetingAgenda.value = "";
+  els.meetingUrl.value = "";
+  els.shareBox.hidden = true;
+  localStorage.removeItem(STORAGE_KEYS.draft);
+  setDefaultSlotInputs();
+  renderSlotList();
+  setMessage(els.createMessage, t("formReset"), "success");
+}
+
+function loadDemo() {
+  if (!requireProfile()) return;
+  const zone = state.profile.timeZone;
+  const base = new Date(Date.now() + 2 * 86400000);
+  const dates = [0, 1, 2].map((offset) => formatInputDate(new Date(base.getTime() + offset * 86400000), zone));
+  els.meetingTitle.value = state.lang === "zh" ? "跨區產品週會" : "Cross-region product sync";
+  els.meetingAgenda.value =
+    state.lang === "zh"
+      ? "1. 產品里程碑\n2. 設計與工程風險\n3. 下一週決策"
+      : "1. Product milestones\n2. Design and engineering risks\n3. Decisions for next week";
+  els.meetingUrl.value = "https://meet.example.com/product-sync";
+  state.slots = [
+    { id: createId("slot"), startUtc: zonedTimeToUtc(dates[0], "09:00", zone).toISOString(), duration: 60 },
+    { id: createId("slot"), startUtc: zonedTimeToUtc(dates[1], "14:00", zone).toISOString(), duration: 60 },
+    { id: createId("slot"), startUtc: zonedTimeToUtc(dates[2], "16:30", zone).toISOString(), duration: 45 }
+  ];
+  saveDraft();
+  renderSlotList();
+  setMessage(els.createMessage, t("demoLoaded"), "success");
+}
+
+function renderPollMeta(target, compact) {
+  if (!state.poll) {
+    target.innerHTML = "";
+    return;
+  }
+  const poll = state.poll;
+  const creatorCountry = getCountryName(poll.creator.countryCode);
+  const creatorGmt = formatGmtOffset(poll.creator.timeZone, new Date(poll.createdAt));
+  const agenda = poll.agenda || t("untitledAgenda");
+  const link = poll.meetingUrl
+    ? `<a class="meeting-link" href="${escapeHtml(poll.meetingUrl)}" target="_blank" rel="noreferrer">${escapeHtml(poll.meetingUrl)}</a>`
+    : `<span>${escapeHtml(t("untitledLink"))}</span>`;
+
+  target.classList.toggle("compact", compact);
+  target.innerHTML = `
+    <div>
+      <p class="eyebrow">${escapeHtml(compact ? t("resultsTitle") : t("localLabel"))}</p>
+      <h1 id="${compact ? "resultsPollTitle" : "voteTitle"}">${escapeHtml(poll.title)}</h1>
+    </div>
+    <p class="poll-agenda">${escapeHtml(agenda)}</p>
+    <div class="poll-details">
+      <span class="detail-chip">${escapeHtml(t("creatorLabel"))}: ${escapeHtml(creatorCountry)} · ${escapeHtml(creatorGmt)}</span>
+      <span class="detail-chip">${escapeHtml(t("meetingLink"))}: ${link}</span>
+    </div>
+  `;
+}
+
+function prepareVoteState() {
+  if (!state.poll) return;
+  const lastName = localStorage.getItem(lastNameKey(state.poll.id)) || "";
+  if (lastName) {
+    const votes = loadVotes();
+    state.choices = { ...(votes[lastName]?.choices || {}) };
+  }
+}
+
+function renderVote() {
+  if (!state.poll) return;
+  renderPollMeta(els.pollMeta, false);
+  if (!els.participantName.value) {
+    els.participantName.value = localStorage.getItem(lastNameKey(state.poll.id)) || "";
+  }
+  const zone = state.profile?.timeZone || state.detectedTimeZone;
+  els.voteSlots.innerHTML = state.poll.slots
+    .map((slot) => {
+      const time = formatSlot(slot, zone);
+      const choice = state.choices[slot.id];
+      return `
+        <article class="vote-slot-card">
+          <div class="vote-slot-time">
+            <strong>${escapeHtml(time.main)}</strong>
+            <small>${escapeHtml(time.sub)} · ${escapeHtml(t("slotDuration", { minutes: slot.duration }))}</small>
+          </div>
+          <div class="choice-group" role="group" aria-label="${escapeHtml(time.main)}">
+            <button class="choice-button ${choice === "yes" ? "is-selected" : ""}" type="button" data-slot-id="${escapeHtml(slot.id)}" data-choice="yes">${escapeHtml(t("canAttend"))}</button>
+            <button class="choice-button ${choice === "no" ? "is-selected" : ""}" type="button" data-slot-id="${escapeHtml(slot.id)}" data-choice="no">${escapeHtml(t("cannotAttend"))}</button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function hydrateVoteForName() {
+  if (!state.poll) return;
+  const name = els.participantName.value.trim();
+  const votes = loadVotes();
+  state.choices = { ...(votes[name]?.choices || {}) };
+  renderVote();
+}
+
+function onVoteSlotClick(event) {
+  const button = event.target.closest("[data-slot-id][data-choice]");
+  if (!button) return;
+  state.choices[button.dataset.slotId] = button.dataset.choice;
+  renderVote();
+}
+
+async function submitVote() {
+  if (!state.poll) return;
+  if (!requireProfile()) return;
+  const name = els.participantName.value.trim();
+  if (!name) {
+    setMessage(els.voteMessage, t("nameRequired"), "error");
+    els.participantName.focus();
+    return;
+  }
+  const incomplete = state.poll.slots.some((slot) => !state.choices[slot.id]);
+  if (incomplete) {
+    setMessage(els.voteMessage, t("voteIncomplete"), "error");
+    return;
+  }
+
+  const vote = {
+    name,
+    countryCode: state.profile.countryCode,
+    timeZone: state.profile.timeZone,
+    choices: { ...state.choices },
+    updatedAt: new Date().toISOString()
+  };
+
+  if (state.serverBacked) {
+    try {
+      const payload = await apiSubmitVote(state.poll.id, vote);
+      applyRemotePayload(payload);
+      localStorage.setItem(lastNameKey(state.poll.id), name);
+      setMessage(els.voteMessage, t("voteSaved"), "success");
+      setView("results");
+      renderResults();
+      return;
+    } catch (error) {
+      setMessage(els.voteMessage, t("syncFailed"), "error");
+      return;
+    }
+  }
+
+  const votes = loadVotes();
+  votes[name] = vote;
+  localStorage.setItem(votesKey(state.poll.id), JSON.stringify(votes));
+  localStorage.setItem(lastNameKey(state.poll.id), name);
+  setMessage(els.voteMessage, t("voteSaved"), "success");
+  setView("results");
+  renderResults();
+}
+
+function renderResults() {
+  if (!state.poll) return;
+  renderPollMeta(els.resultsMeta, true);
+  const votes = getVotesList();
+  const zone = state.profile?.timeZone || state.detectedTimeZone;
+  const rows = state.poll.slots.map((slot) => {
+    const yes = votes.filter((vote) => vote.choices?.[slot.id] === "yes");
+    const no = votes.filter((vote) => vote.choices?.[slot.id] === "no");
+    return { slot, yes, no };
+  });
+
+  const best = [...rows].sort((a, b) => b.yes.length - a.yes.length || a.no.length - b.no.length);
+  if (!votes.length) {
+    els.bestList.innerHTML = `<div class="empty-state">${escapeHtml(t("noVotes"))}</div>`;
+  } else {
+    els.bestList.innerHTML = best
+      .slice(0, Math.min(3, best.length))
+      .map((row) => {
+        const time = formatSlot(row.slot, zone);
+        return `
+          <article class="best-card">
+            <strong>${escapeHtml(time.main)}</strong>
+            <small>${escapeHtml(time.sub)} · ${escapeHtml(t("yesCount", { count: row.yes.length }))} · ${escapeHtml(t("noCount", { count: row.no.length }))}</small>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
+  els.resultsTableHead.innerHTML = `
+    <tr>
+      <th>${escapeHtml(t("timeColumn"))}</th>
+      <th>${escapeHtml(t("canAttend"))}</th>
+      <th>${escapeHtml(t("cannotAttend"))}</th>
+      <th>${escapeHtml(t("availablePeople"))}</th>
+      <th>${escapeHtml(t("unavailablePeople"))}</th>
+    </tr>
+  `;
+
+  els.resultsTableBody.innerHTML = rows
+    .map((row) => {
+      const time = formatSlot(row.slot, zone);
+      const yesNames = row.yes.map((vote) => vote.name).join(", ");
+      const noNames = row.no.map((vote) => vote.name).join(", ");
+      return `
+        <tr>
+          <td><strong>${escapeHtml(time.main)}</strong><br><small>${escapeHtml(time.sub)}</small></td>
+          <td class="yes-text">${row.yes.length}</td>
+          <td class="no-text">${row.no.length}</td>
+          <td>${escapeHtml(yesNames || "—")}</td>
+          <td>${escapeHtml(noNames || "—")}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function requireProfile() {
+  if (state.profile) return true;
+  openTimezoneGate(true);
+  return false;
+}
+
+function setDefaultSlotInputs() {
+  const zone = state.profile?.timeZone || state.detectedTimeZone;
+  const tomorrow = new Date(Date.now() + 86400000);
+  els.slotDate.value = formatInputDate(tomorrow, zone);
+  els.slotTime.value = "09:00";
+}
+
+function loadLanguage() {
+  const saved = localStorage.getItem(STORAGE_KEYS.lang);
+  if (saved === "zh" || saved === "en") return saved;
+  return navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
+function loadProfile() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.profile) || "null");
+    if (saved?.countryCode && saved?.timeZone && isValidTimeZone(saved.timeZone)) {
+      return saved;
+    }
+  } catch (error) {
+    return null;
+  }
+  return null;
+}
+
+function loadDraft() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.draft) || "{}");
+  } catch (error) {
+    return {};
+  }
+}
+
+function loadDraftSlots() {
+  const draft = loadDraft();
+  return Array.isArray(draft.slots) ? draft.slots : [];
+}
+
+function saveDraft() {
+  const draft = {
+    title: els.meetingTitle.value,
+    agenda: els.meetingAgenda.value,
+    meetingUrl: els.meetingUrl.value,
+    slots: state.slots
+  };
+  localStorage.setItem(STORAGE_KEYS.draft, JSON.stringify(draft));
+}
+
+function getDetectedTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch (error) {
+    return "UTC";
+  }
+}
+
+function buildCountryOptions() {
+  const seen = new Set();
+  return COUNTRY_ZONES.flatMap(([countryCode, zones]) =>
+    zones.split("|").map((zone) => ({
+      countryCode,
+      timeZone: resolveTimeZone(zone)
+    }))
+  )
+    .filter((option) => option.timeZone)
+    .filter((option) => {
+      const key = `${option.countryCode}:${option.timeZone}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function resolveTimeZone(zone) {
+  if (isValidTimeZone(zone)) {
+    return getCanonicalTimeZone(zone);
+  }
+  const fallback = ZONE_FALLBACKS[zone];
+  if (fallback && isValidTimeZone(fallback)) {
+    return getCanonicalTimeZone(fallback);
+  }
+  return "";
+}
+
+function isValidTimeZone(zone) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone }).format(new Date());
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function getCanonicalTimeZone(zone) {
+  try {
+    return new Intl.DateTimeFormat("en-US", { timeZone: zone }).resolvedOptions().timeZone;
+  } catch (error) {
+    return zone;
+  }
+}
+
+function getCountryName(code, lang = state.lang) {
+  if (REGION_FALLBACKS[code]) {
+    return REGION_FALLBACKS[code][lang] || REGION_FALLBACKS[code].en;
+  }
+  try {
+    const locale = lang === "zh" ? "zh-Hant" : "en";
+    return new Intl.DisplayNames([locale], { type: "region" }).of(code) || code;
+  } catch (error) {
+    return code;
+  }
+}
+
+function getZoneLabel(timeZone) {
+  return timeZone
+    .split("/")
+    .slice(1)
+    .join(" / ")
+    .replace(/_/g, " ");
+}
+
+function formatSlot(slot, timeZone) {
+  const start = new Date(slot.startUtc);
+  const end = new Date(start.getTime() + slot.duration * 60000);
+  const locale = state.lang === "zh" ? "zh-Hant-TW" : "en-US";
+  const dateFormatter = new Intl.DateTimeFormat(locale, {
+    timeZone,
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric"
+  });
+  const timeFormatter = new Intl.DateTimeFormat(locale, {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  });
+  const gmt = formatGmtOffset(timeZone, start);
+  return {
+    main: `${dateFormatter.format(start)} · ${timeFormatter.format(start)}-${timeFormatter.format(end)}`,
+    sub: `${gmt} · ${getZoneLabel(timeZone)}`
+  };
+}
+
+function formatInputDate(date, timeZone) {
+  const parts = getZonedParts(date, timeZone);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function zonedTimeToUtc(dateValue, timeValue, timeZone) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const [hour, minute] = timeValue.split(":").map(Number);
+  let utcMs = Date.UTC(year, month - 1, day, hour, minute, 0);
+  for (let i = 0; i < 3; i += 1) {
+    utcMs = Date.UTC(year, month - 1, day, hour, minute, 0) - getTimeZoneOffsetMs(timeZone, new Date(utcMs));
+  }
+  return new Date(utcMs);
+}
+
+function getZonedParts(date, timeZone) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  });
+  const map = {};
+  formatter.formatToParts(date).forEach((part) => {
+    if (part.type !== "literal") {
+      map[part.type] = part.value;
+    }
+  });
+  return map;
+}
+
+function getTimeZoneOffsetMs(timeZone, date) {
+  const parts = getZonedParts(date, timeZone);
+  const utcFromZonedParts = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second)
+  );
+  return utcFromZonedParts - date.getTime();
+}
+
+function formatGmtOffset(timeZone, date) {
+  const offsetMinutes = Math.round(getTimeZoneOffsetMs(timeZone, date) / 60000);
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const absolute = Math.abs(offsetMinutes);
+  const hours = String(Math.floor(absolute / 60)).padStart(2, "0");
+  const minutes = String(absolute % 60).padStart(2, "0");
+  return `GMT${sign}${hours}:${minutes}`;
+}
+
+function encodePoll(poll) {
+  const json = JSON.stringify(poll);
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function decodePoll(encoded) {
+  const padded = encoded.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(encoded.length / 4) * 4, "=");
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+function validatePoll(poll) {
+  if (!poll || poll.version !== 1 || !poll.id || !poll.title || !Array.isArray(poll.slots)) {
+    throw new Error("Invalid poll");
+  }
+}
+
+function getPollLink(poll) {
+  if (!poll) return "";
+  const encoded = state.serverBacked ? poll.id : state.pollEncoded && state.poll?.id === poll.id ? state.pollEncoded : encodePoll(poll);
+  return `${window.location.href.split("#")[0]}#poll=${encoded}`;
+}
+
+function isServerPollKey(value) {
+  return /^poll_[A-Za-z0-9_-]+$/.test(value);
+}
+
+function normalizeMeetingUrl(value) {
+  const raw = value.trim();
+  if (!raw) return "";
+  const withProtocol = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const url = new URL(withProtocol);
+    return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function loadVotes() {
+  if (!state.poll) return {};
+  if (state.serverBacked) {
+    return Object.fromEntries((state.votes || []).map((vote) => [vote.name, vote]));
+  }
+  try {
+    return JSON.parse(localStorage.getItem(votesKey(state.poll.id)) || "{}");
+  } catch (error) {
+    return {};
+  }
+}
+
+function getVotesList() {
+  if (state.serverBacked) {
+    return state.votes || [];
+  }
+  return Object.values(loadVotes());
+}
+
+function applyRemotePayload(payload) {
+  validatePoll(payload.poll);
+  state.poll = payload.poll;
+  state.pollEncoded = payload.poll.id;
+  state.votes = Array.isArray(payload.votes) ? payload.votes : [];
+  state.serverBacked = true;
+  state.shareUrl = getPollLink(payload.poll);
+}
+
+async function apiCreatePoll(poll) {
+  return apiRequest("/api/polls", {
+    method: "POST",
+    body: JSON.stringify(poll)
+  });
+}
+
+async function apiFetchPoll(pollId) {
+  return apiRequest(`/api/polls/${encodeURIComponent(pollId)}`);
+}
+
+async function apiSubmitVote(pollId, vote) {
+  return apiRequest(`/api/polls/${encodeURIComponent(pollId)}/votes`, {
+    method: "POST",
+    body: JSON.stringify(vote)
+  });
+}
+
+async function apiRequest(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || "Request failed");
+  }
+  return payload;
+}
+
+function connectRealtime() {
+  closeRealtime();
+  if (!state.serverBacked || !window.EventSource) return;
+  const source = new EventSource(`/api/polls/${encodeURIComponent(state.poll.id)}/events`);
+  state.realtimeSource = source;
+
+  const handleUpdate = (event) => {
+    const payload = JSON.parse(event.data);
+    applyRemotePayload(payload);
+    renderVote();
+    renderResults();
+  };
+
+  source.addEventListener("snapshot", handleUpdate);
+  source.addEventListener("poll:update", handleUpdate);
+}
+
+function closeRealtime() {
+  if (state.realtimeSource) {
+    state.realtimeSource.close();
+    state.realtimeSource = null;
+  }
+}
+
+function votesKey(pollId) {
+  return `gmt-rally-votes:${pollId}`;
+}
+
+function lastNameKey(pollId) {
+  return `gmt-rally-last-name:${pollId}`;
+}
+
+function createId(prefix) {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+async function copyText(text, messageElement) {
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    if (messageElement) {
+      setMessage(messageElement, t("copied"), "success");
+    }
+  } catch (error) {
+    if (messageElement) {
+      setMessage(messageElement, t("copyFailed"), "error");
+    }
+  }
+}
+
+function setMessage(element, message, type) {
+  if (!element) return;
+  element.textContent = message;
+  element.classList.toggle("is-error", type === "error");
+  element.classList.toggle("is-success", type === "success");
+}
+
+function normalizeSearch(value) {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GMT Rally</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-frame">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="GMT Rally">
+          <span class="brand-mark">GMT</span>
+          <span>
+            <strong>GMT Rally</strong>
+            <small data-i18n="brandSubtitle">會議時間投票</small>
+          </span>
+        </a>
+
+        <div class="topbar-actions">
+          <button class="ghost-button profile-button" id="profileButton" type="button">
+            <span id="profileLabel">GMT</span>
+          </button>
+          <div class="language-switch" role="group" aria-label="Language">
+            <button class="lang-option is-active" data-lang="zh" type="button">中文</button>
+            <button class="lang-option" data-lang="en" type="button">EN</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="main-shell">
+        <section class="view is-active" id="createView" aria-labelledby="createTitle">
+          <div class="workspace-head">
+            <div>
+              <p class="eyebrow" data-i18n="createEyebrow">Create poll</p>
+              <h1 id="createTitle" data-i18n="createTitle">建立會議投票</h1>
+            </div>
+            <button class="secondary-button" id="loadDemoButton" type="button" data-i18n="loadDemo">
+              範例
+            </button>
+          </div>
+
+          <div class="layout-grid">
+            <section class="panel form-panel" aria-labelledby="detailsTitle">
+              <div class="panel-heading">
+                <h2 id="detailsTitle" data-i18n="detailsTitle">會議內容</h2>
+                <span class="timezone-pill" id="creatorTimezoneLabel">GMT</span>
+              </div>
+
+              <div class="field-grid">
+                <label class="field span-two">
+                  <span data-i18n="topicLabel">會議主題</span>
+                  <input id="meetingTitle" type="text" maxlength="90" data-i18n-placeholder="topicPlaceholder" placeholder="例如：跨區產品週會" />
+                </label>
+
+                <label class="field span-two">
+                  <span data-i18n="agendaLabel">大綱內容</span>
+                  <textarea id="meetingAgenda" rows="5" maxlength="800" data-i18n-placeholder="agendaPlaceholder" placeholder="討論內容、決策項目、準備事項"></textarea>
+                </label>
+
+                <label class="field span-two">
+                  <span data-i18n="linkLabel">會議連結</span>
+                  <input id="meetingUrl" type="url" data-i18n-placeholder="linkPlaceholder" placeholder="https://meet.example.com/team" />
+                </label>
+              </div>
+
+              <div class="time-composer" aria-labelledby="timeComposerTitle">
+                <div class="composer-head">
+                  <div>
+                    <h2 id="timeComposerTitle" data-i18n="timeComposerTitle">候選會議時間</h2>
+                    <p id="composerTimezoneText">GMT</p>
+                  </div>
+                  <button class="ghost-button" id="changeCreatorTimezoneButton" type="button" data-i18n="changeTimezone">
+                    變更時區
+                  </button>
+                </div>
+
+                <div class="time-input-row">
+                  <label class="field">
+                    <span data-i18n="dateLabel">日期</span>
+                    <input id="slotDate" type="date" />
+                  </label>
+                  <label class="field">
+                    <span data-i18n="startTimeLabel">開始時間</span>
+                    <input id="slotTime" type="time" step="900" />
+                  </label>
+                  <label class="field">
+                    <span data-i18n="durationLabel">長度</span>
+                    <select id="slotDuration">
+                      <option value="30">30 min</option>
+                      <option value="45">45 min</option>
+                      <option value="60" selected>60 min</option>
+                      <option value="90">90 min</option>
+                      <option value="120">120 min</option>
+                    </select>
+                  </label>
+                  <button class="primary-button add-time-button" id="addSlotButton" type="button">
+                    <span aria-hidden="true">+</span>
+                    <span data-i18n="addTime">加入</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="message-line" id="createMessage" role="status"></div>
+
+              <div class="action-row">
+                <button class="primary-button" id="createPollButton" type="button" data-i18n="createPoll">
+                  產生投票連結
+                </button>
+                <button class="secondary-button" id="resetFormButton" type="button" data-i18n="resetForm">
+                  清空
+                </button>
+              </div>
+
+              <div class="share-box" id="shareBox" hidden>
+                <label class="field">
+                  <span data-i18n="shareLinkLabel">投票連結</span>
+                  <div class="copy-row">
+                    <input id="shareLink" type="text" readonly />
+                    <button class="secondary-button" id="copyLinkButton" type="button" data-i18n="copyLink">
+                      複製
+                    </button>
+                  </div>
+                </label>
+                <button class="ghost-button" id="openPollButton" type="button" data-i18n="openPoll">
+                  開啟投票頁
+                </button>
+              </div>
+            </section>
+
+            <aside class="panel schedule-panel" aria-labelledby="candidateTitle">
+              <div class="time-ribbon" aria-hidden="true">
+                <span>GMT-08</span>
+                <span>GMT+00</span>
+                <span>GMT+08</span>
+              </div>
+              <div class="panel-heading">
+                <h2 id="candidateTitle" data-i18n="candidateTitle">已選時間</h2>
+                <span class="count-pill" id="slotCount">0</span>
+              </div>
+              <div class="slot-list" id="slotList"></div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="voteView" aria-labelledby="voteTitle">
+          <div class="poll-toolbar">
+            <button class="ghost-button" id="newPollButton" type="button" data-i18n="newPoll">建立新投票</button>
+            <button class="secondary-button" id="showResultsButton" type="button" data-i18n="showResults">結果</button>
+          </div>
+
+          <section class="poll-hero" id="pollMeta" aria-labelledby="voteTitle"></section>
+
+          <section class="panel voting-panel" aria-labelledby="participantTitle">
+            <div class="panel-heading">
+              <h2 id="participantTitle" data-i18n="participantTitle">你的回覆</h2>
+              <span class="timezone-pill" id="participantTimezoneLabel">GMT</span>
+            </div>
+            <label class="field participant-field">
+              <span data-i18n="nameLabel">姓名</span>
+              <input id="participantName" type="text" maxlength="70" data-i18n-placeholder="namePlaceholder" placeholder="你的名字" />
+            </label>
+            <div class="vote-slot-list" id="voteSlots"></div>
+            <div class="message-line" id="voteMessage" role="status"></div>
+            <div class="action-row">
+              <button class="primary-button" id="submitVoteButton" type="button" data-i18n="submitVote">送出投票</button>
+              <button class="secondary-button" id="changeParticipantTimezoneButton" type="button" data-i18n="changeTimezone">變更時區</button>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="resultsView" aria-labelledby="resultsTitle">
+          <div class="poll-toolbar">
+            <button class="ghost-button" id="backToVoteButton" type="button" data-i18n="backToVote">回到投票</button>
+            <button class="secondary-button" id="copyPollLinkButton" type="button" data-i18n="copyPollLink">複製投票連結</button>
+          </div>
+          <section class="poll-hero compact" id="resultsMeta" aria-labelledby="resultsTitle"></section>
+          <section class="panel results-panel">
+            <div class="panel-heading">
+              <h2 id="resultsTitle" data-i18n="resultsTitle">投票結果</h2>
+              <span class="timezone-pill" id="resultsTimezoneLabel">GMT</span>
+            </div>
+            <div class="best-list" id="bestList"></div>
+            <div class="results-table-wrap">
+              <table class="results-table">
+                <thead id="resultsTableHead"></thead>
+                <tbody id="resultsTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <section class="timezone-gate" id="timezoneGate" role="dialog" aria-modal="true" aria-labelledby="timezoneTitle" hidden>
+      <div class="timezone-panel">
+        <div class="timezone-panel-head">
+          <div>
+            <p class="eyebrow" data-i18n="timezoneEyebrow">Local time</p>
+            <h2 id="timezoneTitle" data-i18n="timezoneTitle">請先選擇你的國家</h2>
+          </div>
+          <button class="ghost-button close-timezone" id="closeTimezoneButton" type="button" data-i18n="close">關閉</button>
+        </div>
+
+        <label class="field search-field">
+          <span data-i18n="countrySearchLabel">搜尋國家</span>
+          <input id="timezoneSearch" type="search" autocomplete="off" data-i18n-placeholder="countrySearchPlaceholder" placeholder="輸入國家名稱，例如 Taiwan、Japan、台灣" />
+        </label>
+
+        <div class="timezone-results" id="timezoneResults" role="listbox"></div>
+      </div>
+    </section>
+
+    <noscript>GMT Rally needs JavaScript to create and vote on meeting polls.</noscript>
+    <script src="app.js" defer></script>
+  </body>
+</html>
