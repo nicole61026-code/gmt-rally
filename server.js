@@ -67,6 +67,11 @@ async function handleRequest(request, response) {
     return;
   }
 
+  if (pollMatch && request.method === "DELETE") {
+    await deletePoll(request, response, pollMatch[1]);
+    return;
+  }
+
   if (pollMatch && request.method === "POST") {
     sendJson(response, 405, { error: "Use POST /api/polls/{id}/votes to vote." });
     return;
@@ -172,6 +177,26 @@ async function updatePollDetails(request, response, pollId) {
   const payload = await store.updatePoll(pollId, updates);
   await broadcastPoll(pollId);
   sendJson(response, 200, payload);
+}
+
+async function deletePoll(request, response, pollId) {
+  const poll = await store.getPoll(pollId);
+  if (!poll) {
+    sendJson(response, 404, { error: "Poll not found." });
+    return;
+  }
+
+  const body = await readJsonBody(request);
+  const adminToken = cleanString(body.adminToken || request.headers["x-admin-token"], 200);
+
+  if (!isValidAdminToken(poll, adminToken)) {
+    sendJson(response, 403, { error: "Creator management link is required." });
+    return;
+  }
+
+  await store.deletePoll(pollId);
+  closePollClients(pollId);
+  sendJson(response, 200, { ok: true, deletedPollId: pollId });
 }
 
 async function listCreatorPolls(response, encodedCreatorName) {
@@ -291,6 +316,16 @@ async function broadcastPoll(pollId) {
   clients.forEach((client) => {
     writeEvent(client.response, "poll:update", payload);
   });
+}
+
+function closePollClients(pollId) {
+  const clients = CLIENTS.get(pollId);
+  if (!clients?.size) return;
+  clients.forEach((client) => {
+    writeEvent(client.response, "poll:deleted", { id: pollId });
+    client.response.end();
+  });
+  CLIENTS.delete(pollId);
 }
 
 function writeEvent(response, event, payload) {

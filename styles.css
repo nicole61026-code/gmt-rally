@@ -374,7 +374,8 @@ select:focus {
 
 .primary-button,
 .secondary-button,
-.ghost-button {
+.ghost-button,
+.danger-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -421,6 +422,18 @@ select:focus {
   border: 1px solid transparent;
   color: var(--muted);
   background: transparent;
+}
+
+.danger-button {
+  border: 1px solid rgba(179, 59, 75, 0.24);
+  color: var(--rose);
+  background: rgba(179, 59, 75, 0.08);
+}
+
+.danger-button:hover {
+  border-color: rgba(179, 59, 75, 0.62);
+  background: rgba(179, 59, 75, 0.13);
+  transform: translateY(-1px);
 }
 
 .profile-button {
@@ -818,7 +831,8 @@ select:focus {
   .workspace-head,
   .poll-toolbar,
   .panel-heading,
-  .composer-head {
+  .composer-head,
+  .creator-poll-summary {
     align-items: stretch;
     flex-direction: column;
   }

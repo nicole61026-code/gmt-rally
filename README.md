@@ -76,5 +76,8 @@ Creators also enter a creator name / ID when creating a poll. The homepage looku
 
 - The public voting link.
 - The creator management link.
+- A delete action for old or finished polls.
 
 This creator name is a lightweight private ID, not a login system. Anyone who knows it can look up the creator management links, so use a name or phrase that is not easy to guess.
+
+Deleting a poll is permanent and also deletes its saved responses.

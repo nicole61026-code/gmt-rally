@@ -21,6 +21,11 @@ const I18N = {
     creatorLookupFailed: "目前無法查詢，請確認後端已部署完成",
     creatorPollLinkLabel: "會議投票連結",
     creatorManageLinkLabel: "創建者修改連結",
+    deletePoll: "刪除",
+    deletePollConfirm: ({ title }) => `確定要永久刪除「${title}」嗎？所有投票回應也會一起刪除。`,
+    deletePollDone: "已刪除會議投票",
+    deletePollFailed: "刪除失敗，請確認你有創建者修改連結",
+    pollDeleted: "這個會議投票已被建立者刪除",
     createdAtLabel: "建立時間",
     updatedAtLabel: "更新時間",
     responsesShort: ({ count }) => `${count} 份回應`,
@@ -125,6 +130,11 @@ const I18N = {
     creatorLookupFailed: "Cannot look up polls right now. Check that the backend is deployed.",
     creatorPollLinkLabel: "Voting link",
     creatorManageLinkLabel: "Creator edit link",
+    deletePoll: "Delete",
+    deletePollConfirm: ({ title }) => `Permanently delete "${title}"? All responses will be deleted too.`,
+    deletePollDone: "Poll deleted",
+    deletePollFailed: "Could not delete this poll. Check that you have the creator edit link.",
+    pollDeleted: "This poll was deleted by the creator",
     createdAtLabel: "Created",
     updatedAtLabel: "Updated",
     responsesShort: ({ count }) => `${count} responses`,
@@ -837,6 +847,7 @@ function renderCreatorLookup() {
                 ${updatedAt ? ` · ${escapeHtml(t("updatedAtLabel"))}: ${escapeHtml(updatedAt)}` : ""}
               </small>
             </div>
+            <button class="danger-button" type="button" data-delete-poll-id="${escapeHtml(poll.id)}">${escapeHtml(t("deletePoll"))}</button>
           </div>
           <label class="field creator-link-field">
             <span>${escapeHtml(t("creatorPollLinkLabel"))}</span>
@@ -890,9 +901,47 @@ async function lookupCreatorPolls() {
 }
 
 function onCreatorPollListClick(event) {
-  const button = event.target.closest("[data-copy-creator-link]");
-  if (!button) return;
-  copyText(button.dataset.copyCreatorLink, els.creatorLookupMessage);
+  const copyButton = event.target.closest("[data-copy-creator-link]");
+  if (copyButton) {
+    copyText(copyButton.dataset.copyCreatorLink, els.creatorLookupMessage);
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-delete-poll-id]");
+  if (!deleteButton) return;
+  deleteCreatorPoll(deleteButton.dataset.deletePollId);
+}
+
+async function deleteCreatorPoll(pollId) {
+  const poll = (state.creatorPolls || []).find((item) => item.id === pollId);
+  if (!poll?.adminToken) {
+    setMessage(els.creatorLookupMessage, t("deletePollFailed"), "error");
+    return;
+  }
+
+  const confirmed = window.confirm(t("deletePollConfirm", { title: poll.title }));
+  if (!confirmed) return;
+
+  try {
+    await apiDeletePoll(poll.id, poll.adminToken);
+    state.creatorPolls = (state.creatorPolls || []).filter((item) => item.id !== poll.id);
+    if (state.poll?.id === poll.id) {
+      closeRealtime();
+      state.poll = null;
+      state.pollEncoded = "";
+      state.adminToken = "";
+      state.shareUrl = "";
+      state.shareAdminUrl = "";
+      state.votes = [];
+      state.serverBacked = false;
+      window.location.hash = "";
+      setView("create");
+    }
+    renderCreatorLookup();
+    setMessage(els.creatorLookupMessage, t("deletePollDone"), "success");
+  } catch (error) {
+    setMessage(els.creatorLookupMessage, t("deletePollFailed"), "error");
+  }
 }
 
 function mergeCreatorPolls(newPoll, existingPolls) {
@@ -1791,6 +1840,13 @@ async function apiUpdatePoll(pollId, updates) {
   });
 }
 
+async function apiDeletePoll(pollId, adminToken) {
+  return apiRequest(`/api/polls/${encodeURIComponent(pollId)}`, {
+    method: "DELETE",
+    body: JSON.stringify({ adminToken })
+  });
+}
+
 async function apiListCreatorPolls(creatorName) {
   return apiRequest(`/api/creators/${encodeURIComponent(creatorName)}/polls`);
 }
@@ -1828,6 +1884,20 @@ function connectRealtime() {
 
   source.addEventListener("snapshot", handleUpdate);
   source.addEventListener("poll:update", handleUpdate);
+  source.addEventListener("poll:deleted", () => {
+    closeRealtime();
+    state.poll = null;
+    state.pollEncoded = "";
+    state.adminToken = "";
+    state.shareUrl = "";
+    state.shareAdminUrl = "";
+    state.votes = [];
+    state.serverBacked = false;
+    window.location.hash = "";
+    setView("create");
+    renderAll();
+    setMessage(els.createMessage, t("pollDeleted"), "error");
+  });
 }
 
 function closeRealtime() {

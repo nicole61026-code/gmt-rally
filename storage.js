@@ -74,6 +74,14 @@ class JsonPollStore {
     return this.getPayload(pollId);
   }
 
+  async deletePoll(pollId) {
+    const poll = await this.getPoll(pollId);
+    if (!poll) return false;
+    delete this.db.polls[pollId];
+    await this.persist();
+    return true;
+  }
+
   persist() {
     this.saveQueue = this.saveQueue.then(async () => {
       const tempFile = `${this.dbFile}.tmp`;
@@ -195,6 +203,16 @@ class SupabasePollStore {
     });
 
     return this.getPayload(pollId);
+  }
+
+  async deletePoll(pollId) {
+    const poll = await this.getPoll(pollId);
+    if (!poll) return false;
+    await this.request(`/${this.pollTable}?id=eq.${encodeFilterValue(pollId)}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" }
+    });
+    return true;
   }
 
   async request(pathname, options = {}) {
