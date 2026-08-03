@@ -200,6 +200,65 @@ a {
   align-items: start;
 }
 
+.creator-lookup-panel {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: clamp(18px, 3vw, 24px);
+}
+
+.panel-copy {
+  max-width: 760px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.lookup-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.creator-poll-list {
+  display: grid;
+  gap: 12px;
+}
+
+.creator-poll-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.creator-poll-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.creator-poll-summary strong {
+  display: block;
+  line-height: 1.35;
+}
+
+.creator-poll-summary small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.creator-link-field input {
+  font-size: 0.86rem;
+}
+
 .panel {
   border: 1px solid rgba(189, 203, 196, 0.86);
   border-radius: 8px;
@@ -258,6 +317,13 @@ a {
   color: #33413e;
   font-size: 0.86rem;
   font-weight: 800;
+}
+
+.field-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 .span-two {
@@ -473,6 +539,10 @@ select:focus {
   text-align: center;
 }
 
+.empty-state.compact {
+  min-height: 74px;
+}
+
 .slot-card,
 .vote-slot-card,
 .best-card {
@@ -562,6 +632,11 @@ select:focus {
   color: #374542;
   line-height: 1.65;
   white-space: pre-wrap;
+}
+
+.admin-panel {
+  margin-bottom: 18px;
+  padding: clamp(18px, 3vw, 28px);
 }
 
 .participant-field {
@@ -729,6 +804,7 @@ select:focus {
 
 @media (max-width: 880px) {
   .layout-grid,
+  .lookup-row,
   .time-input-row,
   .vote-slot-card {
     grid-template-columns: 1fr;

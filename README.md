@@ -18,6 +18,7 @@ http://127.0.0.1:4173/
 
 - `server.js` serves the website and API.
 - Polls are created with `POST /api/polls`.
+- Creator poll lists are loaded with `GET /api/creators/:creatorName/polls`.
 - Votes are submitted with `POST /api/polls/:id/votes`.
 - Results update live through `GET /api/polls/:id/events` using Server-Sent Events.
 - Runtime data is stored in `data/polls.json`.
@@ -60,3 +61,20 @@ After deploy, share links will use the public host:
 ```text
 https://your-app.onrender.com/#poll=poll_...
 ```
+
+## Creator Management
+
+When a server-backed poll is created, the app also generates a creator management link:
+
+```text
+https://your-app.onrender.com/#poll=poll_...&admin=...
+```
+
+Keep this link private. Anyone with it can update the meeting topic, agenda, and meeting link. Candidate times are intentionally not editable after creation so existing votes stay meaningful.
+
+Creators also enter a creator name / ID when creating a poll. The homepage lookup section can search that name and show every poll created with it, including:
+
+- The public voting link.
+- The creator management link.
+
+This creator name is a lightweight private ID, not a login system. Anyone who knows it can look up the creator management links, so use a name or phrase that is not easy to guess.

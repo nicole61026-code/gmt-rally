@@ -1,11 +1,29 @@
 const STORAGE_KEYS = {
   lang: "gmt-rally-lang",
   profile: "gmt-rally-profile",
-  draft: "gmt-rally-draft"
+  draft: "gmt-rally-draft",
+  creatorName: "gmt-rally-creator-name"
 };
 
 const I18N = {
   zh: {
+    creatorNameLabel: "建立者名字 / ID",
+    creatorNamePlaceholder: "例如 Nicole 或 team-sync",
+    creatorNameNote: "這個名字會用來查詢你建立過的投票，請當成私密 ID。",
+    creatorNameRequired: "請輸入建立者名字",
+    creatorLookupTitle: "查詢我建立的投票",
+    creatorLookupHint: "輸入建立時使用的名字，可以看到公開投票連結和建立者修改連結。",
+    creatorLookupLabel: "建立者名字 / ID",
+    creatorLookupPlaceholder: "輸入同一個建立者名字",
+    lookupCreatorPolls: "查詢",
+    creatorLookupEmpty: "找不到這個名字建立的投票",
+    creatorLookupReady: ({ count }) => `找到 ${count} 個投票`,
+    creatorLookupFailed: "目前無法查詢，請確認後端已部署完成",
+    creatorPollLinkLabel: "會議投票連結",
+    creatorManageLinkLabel: "創建者修改連結",
+    createdAtLabel: "建立時間",
+    updatedAtLabel: "更新時間",
+    responsesShort: ({ count }) => `${count} 份回應`,
     brandSubtitle: "會議時間投票",
     createEyebrow: "Create poll",
     createTitle: "建立會議投票",
@@ -26,7 +44,10 @@ const I18N = {
     createPoll: "產生投票連結",
     resetForm: "清空",
     shareLinkLabel: "投票連結",
+    manageLinkLabel: "建立者管理連結",
+    manageLinkWarning: "只有建立者使用，請勿分享給參與者。",
     copyLink: "複製",
+    copyManageLink: "複製",
     openPoll: "開啟投票頁",
     candidateTitle: "已選時間",
     noSlots: "尚未加入候選時間",
@@ -76,6 +97,11 @@ const I18N = {
     voteLocked: "你已送出回覆，這份投票不能再更改；可以直接查看結果",
     voteAlreadySubmitted: "這個姓名已經送出過回覆，不能覆蓋原本選擇",
     submittedVote: "已送出",
+    creatorToolsTitle: "建立者設定",
+    creatorOnly: "建立者專用",
+    saveMeetingDetails: "儲存變更",
+    detailsSaved: "會議資訊已更新",
+    manageDenied: "只有建立者管理連結可以更新會議資訊",
     invalidPoll: "投票連結無法讀取",
     syncFailed: "無法連線到同步伺服器，請確認後端服務正在執行",
     syncFallback: "同步伺服器未連線，已產生離線投票連結",
@@ -85,6 +111,23 @@ const I18N = {
     untitledLink: "未提供連結"
   },
   en: {
+    creatorNameLabel: "Creator name / ID",
+    creatorNamePlaceholder: "Example: Nicole or team-sync",
+    creatorNameNote: "This name lets you look up polls you created. Treat it like a private ID.",
+    creatorNameRequired: "Add a creator name",
+    creatorLookupTitle: "Find my created polls",
+    creatorLookupHint: "Enter the same creator name to see the voting links and creator management links.",
+    creatorLookupLabel: "Creator name / ID",
+    creatorLookupPlaceholder: "Enter the same creator name",
+    lookupCreatorPolls: "Find polls",
+    creatorLookupEmpty: "No polls were found for that creator name",
+    creatorLookupReady: ({ count }) => `${count} polls found`,
+    creatorLookupFailed: "Cannot look up polls right now. Check that the backend is deployed.",
+    creatorPollLinkLabel: "Voting link",
+    creatorManageLinkLabel: "Creator edit link",
+    createdAtLabel: "Created",
+    updatedAtLabel: "Updated",
+    responsesShort: ({ count }) => `${count} responses`,
     brandSubtitle: "meeting time polls",
     createEyebrow: "Create poll",
     createTitle: "Create a meeting poll",
@@ -105,7 +148,10 @@ const I18N = {
     createPoll: "Create voting link",
     resetForm: "Clear",
     shareLinkLabel: "Voting link",
+    manageLinkLabel: "Creator management link",
+    manageLinkWarning: "For the creator only. Do not share it with participants.",
     copyLink: "Copy",
+    copyManageLink: "Copy",
     openPoll: "Open poll",
     candidateTitle: "Selected times",
     noSlots: "No candidate times yet",
@@ -155,6 +201,11 @@ const I18N = {
     voteLocked: "Your response has been submitted and can no longer be changed. You can view results directly.",
     voteAlreadySubmitted: "This name has already submitted a response and cannot overwrite the original choices.",
     submittedVote: "Submitted",
+    creatorToolsTitle: "Creator settings",
+    creatorOnly: "Creator only",
+    saveMeetingDetails: "Save changes",
+    detailsSaved: "Meeting details updated",
+    manageDenied: "Only the creator management link can update meeting details",
     invalidPoll: "This poll link cannot be read",
     syncFailed: "Cannot connect to the sync server. Make sure the backend is running.",
     syncFallback: "Sync server is offline. An offline voting link was created.",
@@ -436,7 +487,11 @@ const state = {
   slots: [],
   poll: null,
   pollEncoded: "",
+  adminToken: "",
   shareUrl: "",
+  shareAdminUrl: "",
+  creatorPolls: null,
+  creatorLookupSearched: false,
   choices: {},
   votes: [],
   voteLocked: false,
@@ -481,6 +536,7 @@ function cacheElements() {
     "timezoneResults",
     "closeTimezoneButton",
     "meetingTitle",
+    "creatorName",
     "meetingAgenda",
     "meetingUrl",
     "slotDate",
@@ -494,7 +550,14 @@ function cacheElements() {
     "createMessage",
     "shareBox",
     "shareLink",
+    "manageLinkField",
+    "manageLink",
     "copyLinkButton",
+    "copyManageLinkButton",
+    "creatorLookupName",
+    "lookupCreatorPollsButton",
+    "creatorLookupMessage",
+    "creatorPollList",
     "openPollButton",
     "loadDemoButton",
     "createView",
@@ -510,6 +573,12 @@ function cacheElements() {
     "voteSlots",
     "voteMessage",
     "submitVoteButton",
+    "creatorTools",
+    "editMeetingTitle",
+    "editMeetingAgenda",
+    "editMeetingUrl",
+    "savePollDetailsButton",
+    "detailsMessage",
     "bestList",
     "resultsTableHead",
     "resultsTableBody"
@@ -540,6 +609,23 @@ function bindEvents() {
   els.createPollButton.addEventListener("click", createPoll);
   els.resetFormButton.addEventListener("click", resetForm);
   els.copyLinkButton.addEventListener("click", () => copyText(state.shareUrl, els.createMessage));
+  els.copyManageLinkButton.addEventListener("click", () => copyText(state.shareAdminUrl, els.createMessage));
+  els.lookupCreatorPollsButton.addEventListener("click", lookupCreatorPolls);
+  els.creatorLookupName.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      lookupCreatorPolls();
+    }
+  });
+  els.creatorPollList.addEventListener("click", onCreatorPollListClick);
+  els.creatorName.addEventListener("input", () => {
+    const creatorName = cleanCreatorName(els.creatorName.value);
+    localStorage.setItem(STORAGE_KEYS.creatorName, creatorName);
+    if (!els.creatorLookupName.value.trim()) {
+      els.creatorLookupName.value = creatorName;
+    }
+  });
+  els.savePollDetailsButton.addEventListener("click", savePollDetails);
   els.openPollButton.addEventListener("click", () => {
     if (state.pollEncoded) {
       window.location.hash = `poll=${state.pollEncoded}`;
@@ -551,6 +637,8 @@ function bindEvents() {
     window.location.hash = "";
     state.poll = null;
     state.pollEncoded = "";
+    state.adminToken = "";
+    state.shareAdminUrl = "";
     state.choices = {};
     state.votes = [];
     state.voteLocked = false;
@@ -593,10 +681,13 @@ function t(key, params = {}) {
 async function routeFromHash() {
   const params = new URLSearchParams(window.location.hash.slice(1));
   const encoded = params.get("poll");
+  const adminToken = params.get("admin") || "";
   if (!encoded) {
     closeRealtime();
     state.poll = null;
     state.pollEncoded = "";
+    state.adminToken = "";
+    state.shareAdminUrl = "";
     state.choices = {};
     state.votes = [];
     state.voteLocked = false;
@@ -609,11 +700,15 @@ async function routeFromHash() {
   try {
     closeRealtime();
     if (isServerPollKey(encoded)) {
+      if (adminToken) {
+        saveAdminToken(encoded, adminToken);
+      }
       const payload = await apiFetchPoll(encoded);
+      state.adminToken = adminToken || loadAdminToken(encoded);
       applyRemotePayload(payload);
-    state.choices = {};
-    state.voteLocked = false;
-    prepareVoteState();
+      state.choices = {};
+      state.voteLocked = false;
+      prepareVoteState();
       setView("vote");
       renderAll();
       connectRealtime();
@@ -624,6 +719,8 @@ async function routeFromHash() {
     validatePoll(poll);
     state.poll = poll;
     state.pollEncoded = encoded;
+    state.adminToken = "";
+    state.shareAdminUrl = "";
     state.shareUrl = getPollLink(poll);
     state.choices = {};
     state.votes = [];
@@ -649,12 +746,16 @@ function setView(name) {
 function renderAll() {
   renderProfileLabels();
   renderCreatorForm();
+  renderCreatorLookup();
   renderSlotList();
   renderTimezoneResults();
   if (state.poll) {
     renderPollMeta(els.pollMeta, false);
+    renderAdminTools();
     renderVote();
     renderResults();
+  } else {
+    renderAdminTools();
   }
 }
 
@@ -684,6 +785,13 @@ function renderProfileLabels() {
 
 function renderCreatorForm() {
   const draft = loadDraft();
+  const savedCreatorName = localStorage.getItem(STORAGE_KEYS.creatorName) || "";
+  if (document.activeElement !== els.creatorName && !els.creatorName.value) {
+    els.creatorName.value = draft.creatorName || savedCreatorName;
+  }
+  if (document.activeElement !== els.creatorLookupName && !els.creatorLookupName.value) {
+    els.creatorLookupName.value = els.creatorName.value || savedCreatorName;
+  }
   if (document.activeElement !== els.meetingTitle && !els.meetingTitle.value) {
     els.meetingTitle.value = draft.title || "";
   }
@@ -695,6 +803,106 @@ function renderCreatorForm() {
   }
   els.shareBox.hidden = !state.shareUrl;
   els.shareLink.value = state.shareUrl;
+  els.manageLinkField.hidden = !state.shareAdminUrl;
+  els.manageLink.value = state.shareAdminUrl;
+}
+
+function renderCreatorLookup() {
+  if (!els.creatorPollList) return;
+  if (!state.creatorLookupSearched) {
+    els.creatorPollList.innerHTML = "";
+    return;
+  }
+
+  const polls = state.creatorPolls || [];
+  if (!polls.length) {
+    els.creatorPollList.innerHTML = `<div class="empty-state compact">${escapeHtml(t("creatorLookupEmpty"))}</div>`;
+    return;
+  }
+
+  els.creatorPollList.innerHTML = polls
+    .map((poll) => {
+      const voteLink = getServerPollLink(poll.id);
+      const manageLink = poll.adminToken ? getServerAdminPollLink(poll.id, poll.adminToken) : "";
+      const createdAt = poll.createdAt ? formatDateTime(poll.createdAt) : "";
+      const updatedAt = poll.updatedAt ? formatDateTime(poll.updatedAt) : "";
+      return `
+        <article class="creator-poll-card">
+          <div class="creator-poll-summary">
+            <div>
+              <strong>${escapeHtml(poll.title)}</strong>
+              <small>
+                ${escapeHtml(t("responsesShort", { count: poll.voteCount || 0 }))}
+                ${createdAt ? ` · ${escapeHtml(t("createdAtLabel"))}: ${escapeHtml(createdAt)}` : ""}
+                ${updatedAt ? ` · ${escapeHtml(t("updatedAtLabel"))}: ${escapeHtml(updatedAt)}` : ""}
+              </small>
+            </div>
+          </div>
+          <label class="field creator-link-field">
+            <span>${escapeHtml(t("creatorPollLinkLabel"))}</span>
+            <div class="copy-row">
+              <input type="text" readonly value="${escapeHtml(voteLink)}" />
+              <button class="secondary-button" type="button" data-copy-creator-link="${escapeHtml(voteLink)}">${escapeHtml(t("copyLink"))}</button>
+            </div>
+          </label>
+          <label class="field creator-link-field">
+            <span>${escapeHtml(t("creatorManageLinkLabel"))}</span>
+            <div class="copy-row">
+              <input type="text" readonly value="${escapeHtml(manageLink)}" />
+              <button class="secondary-button" type="button" data-copy-creator-link="${escapeHtml(manageLink)}">${escapeHtml(t("copyManageLink"))}</button>
+            </div>
+          </label>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+async function lookupCreatorPolls() {
+  const creatorName = cleanCreatorName(els.creatorLookupName.value || els.creatorName.value);
+  if (!creatorName) {
+    setMessage(els.creatorLookupMessage, t("creatorNameRequired"), "error");
+    els.creatorLookupName.focus();
+    return;
+  }
+
+  els.creatorLookupName.value = creatorName;
+  els.creatorName.value = els.creatorName.value.trim() || creatorName;
+  localStorage.setItem(STORAGE_KEYS.creatorName, creatorName);
+
+  try {
+    const payload = await apiListCreatorPolls(creatorName);
+    state.creatorPolls = payload.polls || [];
+    state.creatorLookupSearched = true;
+    state.creatorPolls.forEach((poll) => {
+      if (poll.adminToken) {
+        saveAdminToken(poll.id, poll.adminToken);
+      }
+    });
+    renderCreatorLookup();
+    setMessage(els.creatorLookupMessage, t("creatorLookupReady", { count: state.creatorPolls.length }), "success");
+  } catch (error) {
+    state.creatorLookupSearched = true;
+    state.creatorPolls = [];
+    renderCreatorLookup();
+    setMessage(els.creatorLookupMessage, t("creatorLookupFailed"), "error");
+  }
+}
+
+function onCreatorPollListClick(event) {
+  const button = event.target.closest("[data-copy-creator-link]");
+  if (!button) return;
+  copyText(button.dataset.copyCreatorLink, els.creatorLookupMessage);
+}
+
+function mergeCreatorPolls(newPoll, existingPolls) {
+  const byId = new Map([[newPoll.id, newPoll]]);
+  existingPolls.forEach((poll) => {
+    if (!byId.has(poll.id)) {
+      byId.set(poll.id, poll);
+    }
+  });
+  return Array.from(byId.values());
 }
 
 function renderSlotList() {
@@ -836,6 +1044,12 @@ function onSlotListClick(event) {
 
 async function createPoll() {
   if (!requireProfile()) return;
+  const creatorName = cleanCreatorName(els.creatorName.value);
+  if (!creatorName) {
+    setMessage(els.createMessage, t("creatorNameRequired"), "error");
+    els.creatorName.focus();
+    return;
+  }
   const title = els.meetingTitle.value.trim();
   if (!title) {
     setMessage(els.createMessage, t("titleRequired"), "error");
@@ -854,6 +1068,8 @@ async function createPoll() {
     title,
     agenda: els.meetingAgenda.value.trim(),
     meetingUrl,
+    creatorName,
+    creatorKey: makeCreatorKey(creatorName),
     creator: { ...state.profile },
     slots: state.slots.map((slot) => ({ ...slot })),
     createdAt: new Date().toISOString()
@@ -867,15 +1083,35 @@ async function createPoll() {
   } catch (error) {
     state.poll = poll;
     state.pollEncoded = encodePoll(poll);
+    state.adminToken = "";
     state.votes = [];
     state.serverBacked = false;
     state.shareUrl = getPollLink(poll);
+    state.shareAdminUrl = "";
     setMessage(els.createMessage, t("syncFallback"), "error");
   }
 
   els.shareLink.value = state.shareUrl;
+  els.manageLink.value = state.shareAdminUrl;
+  els.manageLinkField.hidden = !state.shareAdminUrl;
   els.shareBox.hidden = false;
   if (state.serverBacked) {
+    localStorage.setItem(STORAGE_KEYS.creatorName, creatorName);
+    els.creatorLookupName.value = creatorName;
+    state.creatorLookupSearched = true;
+    state.creatorPolls = mergeCreatorPolls(
+      {
+        id: state.poll.id,
+        title: state.poll.title,
+        creatorName,
+        createdAt: state.poll.createdAt,
+        updatedAt: state.poll.updatedAt,
+        voteCount: state.votes.length,
+        adminToken: state.adminToken
+      },
+      state.creatorPolls || []
+    );
+    renderCreatorLookup();
     setMessage(els.createMessage, t("pollReady"), "success");
   }
   saveDraft();
@@ -886,10 +1122,13 @@ function resetForm() {
   state.slots = [];
   state.shareUrl = "";
   state.pollEncoded = "";
+  state.adminToken = "";
+  state.shareAdminUrl = "";
   state.poll = null;
   state.votes = [];
   state.serverBacked = false;
   els.meetingTitle.value = "";
+  els.creatorName.value = localStorage.getItem(STORAGE_KEYS.creatorName) || "";
   els.meetingAgenda.value = "";
   els.meetingUrl.value = "";
   els.shareBox.hidden = true;
@@ -904,6 +1143,9 @@ function loadDemo() {
   const zone = state.profile.timeZone;
   const base = new Date(Date.now() + 2 * 86400000);
   const dates = [0, 1, 2].map((offset) => formatInputDate(new Date(base.getTime() + offset * 86400000), zone));
+  if (!els.creatorName.value.trim()) {
+    els.creatorName.value = "Nicole";
+  }
   els.meetingTitle.value = state.lang === "zh" ? "跨區產品週會" : "Cross-region product sync";
   els.meetingAgenda.value =
     state.lang === "zh"
@@ -927,6 +1169,7 @@ function renderPollMeta(target, compact) {
   }
   const poll = state.poll;
   const creatorCountry = getCountryName(poll.creator.countryCode);
+  const creatorName = poll.creatorName ? `${poll.creatorName} · ` : "";
   const creatorGmt = formatGmtOffset(poll.creator.timeZone, new Date(poll.createdAt));
   const agenda = poll.agenda || t("untitledAgenda");
   const link = poll.meetingUrl
@@ -941,10 +1184,55 @@ function renderPollMeta(target, compact) {
     </div>
     <p class="poll-agenda">${escapeHtml(agenda)}</p>
     <div class="poll-details">
-      <span class="detail-chip">${escapeHtml(t("creatorLabel"))}: ${escapeHtml(creatorCountry)} · ${escapeHtml(creatorGmt)}</span>
+      <span class="detail-chip">${escapeHtml(t("creatorLabel"))}: ${escapeHtml(creatorName)}${escapeHtml(creatorCountry)} · ${escapeHtml(creatorGmt)}</span>
       <span class="detail-chip">${escapeHtml(t("meetingLink"))}: ${link}</span>
     </div>
   `;
+}
+
+function renderAdminTools() {
+  if (!els.creatorTools) return;
+  const canManage = Boolean(state.poll && state.adminToken && state.serverBacked);
+  els.creatorTools.hidden = !canManage;
+  if (!canManage) return;
+
+  if (document.activeElement !== els.editMeetingTitle) {
+    els.editMeetingTitle.value = state.poll.title || "";
+  }
+  if (document.activeElement !== els.editMeetingAgenda) {
+    els.editMeetingAgenda.value = state.poll.agenda || "";
+  }
+  if (document.activeElement !== els.editMeetingUrl) {
+    els.editMeetingUrl.value = state.poll.meetingUrl || "";
+  }
+}
+
+async function savePollDetails() {
+  if (!state.poll || !state.adminToken) {
+    setMessage(els.detailsMessage, t("manageDenied"), "error");
+    return;
+  }
+
+  const title = els.editMeetingTitle.value.trim();
+  if (!title) {
+    setMessage(els.detailsMessage, t("titleRequired"), "error");
+    els.editMeetingTitle.focus();
+    return;
+  }
+
+  try {
+    const payload = await apiUpdatePoll(state.poll.id, {
+      title,
+      agenda: els.editMeetingAgenda.value.trim(),
+      meetingUrl: normalizeMeetingUrl(els.editMeetingUrl.value),
+      adminToken: state.adminToken
+    });
+    applyRemotePayload(payload);
+    renderAll();
+    setMessage(els.detailsMessage, t("detailsSaved"), "success");
+  } catch (error) {
+    setMessage(els.detailsMessage, t("manageDenied"), "error");
+  }
 }
 
 function prepareVoteState() {
@@ -1194,6 +1482,7 @@ function loadDraftSlots() {
 
 function saveDraft() {
   const draft = {
+    creatorName: els.creatorName.value,
     title: els.meetingTitle.value,
     agenda: els.meetingAgenda.value,
     meetingUrl: els.meetingUrl.value,
@@ -1299,6 +1588,24 @@ function formatSlot(slot, timeZone) {
   };
 }
 
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const locale = state.lang === "zh" ? "zh-Hant-TW" : "en-US";
+  const options = {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  };
+  if (state.profile?.timeZone) {
+    options.timeZone = state.profile.timeZone;
+  }
+  return new Intl.DateTimeFormat(locale, options).format(date);
+}
+
 function formatInputDate(date, timeZone) {
   const parts = getZonedParts(date, timeZone);
   return `${parts.year}-${parts.month}-${parts.day}`;
@@ -1382,11 +1689,36 @@ function validatePoll(poll) {
 function getPollLink(poll) {
   if (!poll) return "";
   const encoded = state.serverBacked ? poll.id : state.pollEncoded && state.poll?.id === poll.id ? state.pollEncoded : encodePoll(poll);
-  return `${window.location.href.split("#")[0]}#poll=${encoded}`;
+  return `${getBaseUrl()}#poll=${encoded}`;
+}
+
+function getAdminPollLink(poll) {
+  if (!poll || !state.adminToken || !state.serverBacked) return "";
+  return getServerAdminPollLink(poll.id, state.adminToken);
+}
+
+function getServerPollLink(pollId) {
+  return `${getBaseUrl()}#poll=${encodeURIComponent(pollId)}`;
+}
+
+function getServerAdminPollLink(pollId, adminToken) {
+  return `${getBaseUrl()}#poll=${encodeURIComponent(pollId)}&admin=${encodeURIComponent(adminToken)}`;
+}
+
+function getBaseUrl() {
+  return window.location.href.split("#")[0];
 }
 
 function isServerPollKey(value) {
   return /^poll_[A-Za-z0-9_-]+$/.test(value);
+}
+
+function cleanCreatorName(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").slice(0, 70);
+}
+
+function makeCreatorKey(value) {
+  return cleanCreatorName(value).toLowerCase();
 }
 
 function normalizeMeetingUrl(value) {
@@ -1426,7 +1758,12 @@ function applyRemotePayload(payload) {
   state.pollEncoded = payload.poll.id;
   state.votes = Array.isArray(payload.votes) ? payload.votes : [];
   state.serverBacked = true;
+  state.adminToken = payload.adminToken || state.adminToken || loadAdminToken(payload.poll.id);
+  if (state.adminToken) {
+    saveAdminToken(payload.poll.id, state.adminToken);
+  }
   state.shareUrl = getPollLink(payload.poll);
+  state.shareAdminUrl = getAdminPollLink(payload.poll);
 }
 
 async function apiCreatePoll(poll) {
@@ -1445,6 +1782,17 @@ async function apiSubmitVote(pollId, vote) {
     method: "POST",
     body: JSON.stringify(vote)
   });
+}
+
+async function apiUpdatePoll(pollId, updates) {
+  return apiRequest(`/api/polls/${encodeURIComponent(pollId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates)
+  });
+}
+
+async function apiListCreatorPolls(creatorName) {
+  return apiRequest(`/api/creators/${encodeURIComponent(creatorName)}/polls`);
 }
 
 async function apiRequest(url, options = {}) {
@@ -1487,6 +1835,18 @@ function closeRealtime() {
     state.realtimeSource.close();
     state.realtimeSource = null;
   }
+}
+
+function saveAdminToken(pollId, token) {
+  localStorage.setItem(adminTokenKey(pollId), token);
+}
+
+function loadAdminToken(pollId) {
+  return localStorage.getItem(adminTokenKey(pollId)) || "";
+}
+
+function adminTokenKey(pollId) {
+  return `gmt-rally-admin-token:${pollId}`;
 }
 
 function votesKey(pollId) {

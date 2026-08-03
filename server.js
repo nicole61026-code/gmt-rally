@@ -50,9 +50,20 @@ async function handleRequest(request, response) {
     return;
   }
 
+  const creatorMatch = url.pathname.match(/^\/api\/creators\/([^/]+)\/polls$/);
+  if (creatorMatch && request.method === "GET") {
+    await listCreatorPolls(response, creatorMatch[1]);
+    return;
+  }
+
   const pollMatch = url.pathname.match(/^\/api\/polls\/([^/]+)$/);
   if (pollMatch && request.method === "GET") {
     await sendPoll(response, pollMatch[1]);
+    return;
+  }
+
+  if (pollMatch && request.method === "PATCH") {
+    await updatePollDetails(request, response, pollMatch[1]);
     return;
   }
 
@@ -86,8 +97,14 @@ async function createPoll(request, response) {
   const title = cleanString(body.title, 90);
   const agenda = cleanString(body.agenda, 800);
   const meetingUrl = normalizeMeetingUrl(body.meetingUrl);
+  const creatorName = cleanCreatorName(body.creatorName);
   const creator = cleanProfile(body.creator);
   const slots = cleanSlots(body.slots);
+
+  if (!creatorName) {
+    sendJson(response, 400, { error: "Creator name is required." });
+    return;
+  }
 
   if (!title) {
     sendJson(response, 400, { error: "Meeting title is required." });
@@ -100,20 +117,72 @@ async function createPoll(request, response) {
   }
 
   const id = createId("poll");
+  const adminToken = createToken();
   const poll = {
     version: 1,
     id,
     title,
     agenda,
     meetingUrl,
+    creatorName,
+    creatorKey: makeCreatorKey(creatorName),
     creator,
+    adminToken,
+    adminTokenHash: hashToken(adminToken),
     slots,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
   const payload = await store.createPoll(poll);
   await broadcastPoll(id);
-  sendJson(response, 201, payload);
+  sendJson(response, 201, { ...payload, adminToken });
+}
+
+async function updatePollDetails(request, response, pollId) {
+  const poll = await store.getPoll(pollId);
+  if (!poll) {
+    sendJson(response, 404, { error: "Poll not found." });
+    return;
+  }
+
+  const body = await readJsonBody(request);
+  const adminToken = cleanString(body.adminToken || request.headers["x-admin-token"], 200);
+
+  if (!isValidAdminToken(poll, adminToken)) {
+    sendJson(response, 403, { error: "Creator management link is required." });
+    return;
+  }
+
+  const updates = {};
+  if (Object.prototype.hasOwnProperty.call(body, "title")) {
+    const title = cleanString(body.title, 90);
+    if (!title) {
+      sendJson(response, 400, { error: "Meeting title is required." });
+      return;
+    }
+    updates.title = title;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "agenda")) {
+    updates.agenda = cleanString(body.agenda, 800);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "meetingUrl")) {
+    updates.meetingUrl = normalizeMeetingUrl(body.meetingUrl);
+  }
+
+  const payload = await store.updatePoll(pollId, updates);
+  await broadcastPoll(pollId);
+  sendJson(response, 200, payload);
+}
+
+async function listCreatorPolls(response, encodedCreatorName) {
+  const creatorName = cleanCreatorName(decodeURIComponent(encodedCreatorName));
+  if (!creatorName) {
+    sendJson(response, 400, { error: "Creator name is required." });
+    return;
+  }
+
+  const polls = await store.listPollsByCreatorKey(makeCreatorKey(creatorName));
+  sendJson(response, 200, { creatorName, polls });
 }
 
 async function submitVote(request, response, pollId) {
@@ -279,6 +348,14 @@ function cleanString(value, maxLength) {
   return String(value || "").trim().slice(0, maxLength);
 }
 
+function cleanCreatorName(value) {
+  return cleanString(value, 70).replace(/\s+/g, " ");
+}
+
+function makeCreatorKey(value) {
+  return cleanCreatorName(value).toLowerCase();
+}
+
 function cleanProfile(value) {
   const countryCode = cleanString(value?.countryCode, 2).toUpperCase();
   const timeZone = cleanString(value?.timeZone, 80);
@@ -323,6 +400,21 @@ function isValidTimeZone(timeZone) {
 
 function createId(prefix) {
   return `${prefix}_${crypto.randomBytes(9).toString("base64url")}`;
+}
+
+function createToken() {
+  return crypto.randomBytes(24).toString("base64url");
+}
+
+function hashToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function isValidAdminToken(poll, token) {
+  if (!poll.adminTokenHash || !token) return false;
+  const expected = Buffer.from(poll.adminTokenHash, "hex");
+  const actual = Buffer.from(hashToken(token), "hex");
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
 }
 
 function sendJson(response, status, payload) {

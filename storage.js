@@ -38,11 +38,18 @@ class JsonPollStore {
   async getPayload(pollId) {
     const poll = await this.getPoll(pollId);
     if (!poll) return null;
-    const { votes, ...publicPoll } = poll;
+    const { votes, ...publicPoll } = stripPrivatePollFields(poll);
     return {
       poll: publicPoll,
       votes: Object.values(votes || {}).sort(sortVotesByName)
     };
+  }
+
+  async listPollsByCreatorKey(creatorKey) {
+    return Object.values(this.db.polls)
+      .filter((poll) => (poll.creatorKey || normalizeCreatorKey(poll.creatorName)) === creatorKey)
+      .map((poll) => toCreatorPollSummary(poll, Object.keys(poll.votes || {}).length))
+      .sort(sortPollSummaries);
   }
 
   async getVote(pollId, name) {
@@ -55,6 +62,14 @@ class JsonPollStore {
     if (!poll) return null;
     poll.votes[vote.name] = vote;
     poll.updatedAt = new Date().toISOString();
+    await this.persist();
+    return this.getPayload(pollId);
+  }
+
+  async updatePoll(pollId, updates) {
+    const poll = await this.getPoll(pollId);
+    if (!poll) return null;
+    Object.assign(poll, updates, { updatedAt: new Date().toISOString() });
     await this.persist();
     return this.getPayload(pollId);
   }
@@ -90,6 +105,9 @@ class SupabasePollStore {
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({
         id: poll.id,
+        creator_name: poll.creatorName,
+        creator_key: poll.creatorKey || normalizeCreatorKey(poll.creatorName),
+        admin_token: poll.adminToken,
         poll,
         created_at: now,
         updated_at: now
@@ -111,9 +129,18 @@ class SupabasePollStore {
 
     const rows = await this.request(`/${this.voteTable}?poll_id=eq.${encodeFilterValue(pollId)}&select=*`);
     return {
-      poll,
+      poll: stripPrivatePollFields(poll),
       votes: rows.map(normalizeVoteRow).sort(sortVotesByName)
     };
+  }
+
+  async listPollsByCreatorKey(creatorKey) {
+    const rows = await this.request(
+      `/${this.pollTable}?creator_key=eq.${encodeFilterValue(creatorKey)}&select=*,${this.voteTable}(name)&order=created_at.desc`
+    );
+    return rows
+      .map((row) => toCreatorPollSummary(normalizePollRow(row), Array.isArray(row[this.voteTable]) ? row[this.voteTable].length : 0))
+      .sort(sortPollSummaries);
   }
 
   async getVote(pollId, name) {
@@ -143,6 +170,28 @@ class SupabasePollStore {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({ updated_at: updatedAt })
+    });
+
+    return this.getPayload(pollId);
+  }
+
+  async updatePoll(pollId, updates) {
+    const poll = await this.getPoll(pollId);
+    if (!poll) return null;
+
+    const updatedPoll = {
+      ...poll,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    await this.request(`/${this.pollTable}?id=eq.${encodeFilterValue(pollId)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        poll: updatedPoll,
+        updated_at: updatedPoll.updatedAt
+      })
     });
 
     return this.getPayload(pollId);
@@ -184,9 +233,17 @@ function createPollStore({ root }) {
 function normalizePollRow(row) {
   return {
     ...row.poll,
+    creatorName: row.creator_name || row.poll.creatorName,
+    creatorKey: row.creator_key || row.poll.creatorKey || normalizeCreatorKey(row.poll.creatorName),
+    adminToken: row.admin_token || row.poll.adminToken,
     createdAt: row.created_at || row.poll.createdAt,
     updatedAt: row.updated_at || row.poll.updatedAt
   };
+}
+
+function stripPrivatePollFields(poll) {
+  const { adminTokenHash, adminToken, creatorKey, ...publicPoll } = poll;
+  return publicPoll;
 }
 
 function normalizeVoteRow(row) {
@@ -198,6 +255,26 @@ function normalizeVoteRow(row) {
 
 function sortVotesByName(a, b) {
   return a.name.localeCompare(b.name);
+}
+
+function sortPollSummaries(a, b) {
+  return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+}
+
+function toCreatorPollSummary(poll, voteCount) {
+  return {
+    id: poll.id,
+    title: poll.title,
+    creatorName: poll.creatorName,
+    createdAt: poll.createdAt,
+    updatedAt: poll.updatedAt,
+    voteCount,
+    adminToken: poll.adminToken || ""
+  };
+}
+
+function normalizeCreatorKey(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function encodeFilterValue(value) {
