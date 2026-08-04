@@ -714,6 +714,14 @@ select:focus {
   border-top: 1px solid var(--line);
 }
 
+.email-action-row {
+  align-items: end;
+}
+
+.email-provider-field {
+  width: min(100%, 240px);
+}
+
 #attendeeEmailList {
   min-height: 72px;
   color: #33413e;

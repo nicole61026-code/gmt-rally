@@ -4,7 +4,7 @@ An English meeting time poll app with country-first time zone selection, GMT dis
 
 Meeting creators can add a single candidate time or bulk-add a custom time range with full-day and work-hours presets.
 
-After voting, creators can confirm one candidate as the final meeting time. The app then generates a standard calendar file, opens a prefilled email draft with attendee emails in Bcc, and, for creator management links only, exposes the attendee email list collected during voting.
+After voting, creators can confirm one candidate as the final meeting time. The app then generates a standard calendar file, opens a prefilled Gmail, Outlook web, or default mail app draft with attendee emails in Bcc, and, for creator management links only, exposes the attendee email list collected during voting.
 
 ## Run
 

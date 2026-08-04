@@ -2,7 +2,8 @@ const STORAGE_KEYS = {
   lang: "gmt-rally-lang",
   profile: "gmt-rally-profile",
   draft: "gmt-rally-draft",
-  creatorName: "gmt-rally-creator-name"
+  creatorName: "gmt-rally-creator-name",
+  emailProvider: "gmt-rally-email-provider"
 };
 
 const I18N = {
@@ -233,8 +234,12 @@ const I18N = {
     confirmMeeting: "Confirm meeting time",
     finalMeetingSaved: "Final meeting time confirmed. You can now email every attendee who provided an email address.",
     finalMeeting: "Final meeting",
-    emailAttendees: "Email attendees",
-    emailDraftReady: "Email draft opened with attendee emails in Bcc.",
+    emailAttendees: "Open email draft",
+    emailDraftReady: ({ provider }) => `${provider} draft opened with attendee emails in Bcc.`,
+    emailProviderLabel: "Email app",
+    emailProviderGmail: "Gmail",
+    emailProviderOutlook: "Outlook web",
+    emailProviderDefault: "Default mail app",
     downloadCalendarInvite: "Download calendar file",
     copyAttendeeEmails: "Copy attendee emails",
     attendeeEmailsLabel: "Attendee emails",
@@ -544,6 +549,7 @@ document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
   cacheElements();
+  els.emailProviderSelect.value = getStoredEmailProvider();
   state.detectedTimeZone = getDetectedTimeZone();
   state.countryOptions = buildCountryOptions();
   state.lang = loadLanguage();
@@ -626,6 +632,7 @@ function cacheElements() {
     "savePollDetailsButton",
     "finalSlotSelect",
     "confirmMeetingButton",
+    "emailProviderSelect",
     "emailAttendeesLink",
     "calendarInviteLink",
     "copyAttendeeEmailsButton",
@@ -683,8 +690,12 @@ function bindEvents() {
   els.savePollDetailsButton.addEventListener("click", savePollDetails);
   els.confirmMeetingButton.addEventListener("click", confirmMeetingTime);
   els.copyAttendeeEmailsButton.addEventListener("click", copyAttendeeEmails);
+  els.emailProviderSelect.addEventListener("change", () => {
+    localStorage.setItem(STORAGE_KEYS.emailProvider, getEmailProvider());
+    renderFinalMeetingTools();
+  });
   els.emailAttendeesLink.addEventListener("click", () => {
-    setMessage(els.detailsMessage, t("emailDraftReady"), "success");
+    setMessage(els.detailsMessage, t("emailDraftReady", { provider: getEmailProviderLabel(getEmailProvider()) }), "success");
   });
   els.openPollButton.addEventListener("click", () => {
     if (state.pollEncoded) {
@@ -1423,10 +1434,14 @@ function renderFinalMeetingTools() {
     .join("");
   els.finalSlotSelect.value = state.poll.slots.some((slot) => slot.id === currentValue) ? currentValue : state.poll.slots[0]?.id || "";
   const emails = getAttendeeEmails();
+  const emailProvider = getEmailProvider();
+  els.emailProviderSelect.value = emailProvider;
+  els.emailProviderSelect.disabled = !state.poll.finalSlotId || !emails.length;
   els.attendeeEmailList.value = emails.join(", ");
   els.attendeeEmailList.placeholder = t("attendeeEmailsPlaceholder");
   els.emailAttendeesLink.hidden = !state.poll.finalSlotId || !emails.length;
-  els.emailAttendeesLink.href = state.poll.finalSlotId ? getEmailInviteLink(state.poll, emails) : "#";
+  els.emailAttendeesLink.href = state.poll.finalSlotId ? getEmailInviteLink(state.poll, emails, emailProvider) : "#";
+  els.emailAttendeesLink.target = emailProvider === "mailto" ? "" : "_blank";
   els.calendarInviteLink.hidden = !state.poll.finalSlotId;
   els.calendarInviteLink.href = state.poll.finalSlotId ? getCalendarInviteLink(state.poll, true) : "#";
   els.copyAttendeeEmailsButton.disabled = !emails.length;
@@ -2002,7 +2017,26 @@ function getCalendarInviteLink(poll, includeAdminToken = false) {
   return `${getBaseUrl()}api/polls/${encodeURIComponent(poll.id)}/calendar.ics${adminQuery}`;
 }
 
-function getEmailInviteLink(poll, emails) {
+function getEmailProvider() {
+  const selected = els.emailProviderSelect?.value || getStoredEmailProvider();
+  return ["gmail", "outlook", "mailto"].includes(selected) ? selected : "gmail";
+}
+
+function getStoredEmailProvider() {
+  const saved = localStorage.getItem(STORAGE_KEYS.emailProvider);
+  return ["gmail", "outlook", "mailto"].includes(saved) ? saved : "gmail";
+}
+
+function getEmailProviderLabel(provider) {
+  const labels = {
+    gmail: t("emailProviderGmail"),
+    outlook: t("emailProviderOutlook"),
+    mailto: t("emailProviderDefault")
+  };
+  return labels[provider] || labels.gmail;
+}
+
+function getEmailInviteLink(poll, emails, provider = "gmail") {
   const finalSlot = poll.finalSlotId ? poll.slots.find((slot) => slot.id === poll.finalSlotId) : null;
   const finalTime = finalSlot ? formatSlot(finalSlot, state.profile?.timeZone || state.detectedTimeZone) : null;
   const subject = `Confirmed: ${poll.title}`;
@@ -2014,14 +2048,21 @@ function getEmailInviteLink(poll, emails) {
     `Topic: ${poll.title}`,
     `Time: ${finalTime ? `${finalTime.main} (${finalTime.sub})` : "Confirmed time"}`,
     ...(poll.meetingUrl ? [`Meeting link: ${poll.meetingUrl}`] : []),
-    `Calendar invite: ${getCalendarInviteLink(poll, false)}`,
+    `Add to calendar: ${getCalendarInviteLink(poll, false)}`,
     "",
     `Poll results: ${getPollLink(poll)}`,
     "",
     `Thank you.`
   ];
   const body = bodyLines.join("\n");
-  return `mailto:?bcc=${encodeURIComponent(emails.join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const bcc = emails.join(",");
+  if (provider === "outlook") {
+    return `https://outlook.office.com/mail/deeplink/compose?${new URLSearchParams({ bcc, subject, body }).toString()}`;
+  }
+  if (provider === "mailto") {
+    return `mailto:?bcc=${encodeURIComponent(bcc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+  return `https://mail.google.com/mail/?${new URLSearchParams({ view: "cm", fs: "1", bcc, su: subject, body }).toString()}`;
 }
 
 function getBaseUrl() {

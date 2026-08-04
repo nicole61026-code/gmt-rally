@@ -249,9 +249,19 @@
               </label>
               <div class="action-row">
                 <button class="primary-button" id="confirmMeetingButton" type="button" data-i18n="confirmMeeting">Confirm meeting time</button>
-                <a class="primary-button" id="emailAttendeesLink" href="#" data-i18n="emailAttendees" hidden>Email attendees</a>
                 <a class="secondary-button" id="calendarInviteLink" href="#" download data-i18n="downloadCalendarInvite" hidden>Download .ics file</a>
                 <button class="secondary-button" id="copyAttendeeEmailsButton" type="button" data-i18n="copyAttendeeEmails">Copy email list</button>
+              </div>
+              <div class="action-row email-action-row">
+                <label class="field email-provider-field">
+                  <span data-i18n="emailProviderLabel">Email app</span>
+                  <select id="emailProviderSelect">
+                    <option value="gmail" data-i18n="emailProviderGmail">Gmail</option>
+                    <option value="outlook" data-i18n="emailProviderOutlook">Outlook web</option>
+                    <option value="mailto" data-i18n="emailProviderDefault">Default mail app</option>
+                  </select>
+                </label>
+                <a class="primary-button" id="emailAttendeesLink" href="#" target="_blank" rel="noopener" data-i18n="emailAttendees" hidden>Open email draft</a>
               </div>
               <label class="field span-two">
                 <span data-i18n="attendeeEmailsLabel">Attendee emails</span>
