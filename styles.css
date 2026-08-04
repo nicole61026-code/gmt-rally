@@ -372,10 +372,45 @@ select:focus {
   margin-top: 16px;
 }
 
+.range-composer {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.range-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.range-head h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.25;
+}
+
+.range-presets {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.range-input-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr minmax(118px, 0.72fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
 .primary-button,
 .secondary-button,
 .ghost-button,
-.danger-button {
+.danger-button,
+.preset-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -434,6 +469,20 @@ select:focus {
   border-color: rgba(179, 59, 75, 0.62);
   background: rgba(179, 59, 75, 0.13);
   transform: translateY(-1px);
+}
+
+.preset-button {
+  min-height: 34px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: #ffffff;
+  padding: 7px 10px;
+}
+
+.preset-button.is-active {
+  border-color: var(--teal);
+  color: #ffffff;
+  background: var(--teal);
 }
 
 .profile-button {
@@ -819,6 +868,7 @@ select:focus {
   .layout-grid,
   .lookup-row,
   .time-input-row,
+  .range-input-row,
   .vote-slot-card {
     grid-template-columns: 1fr;
   }
@@ -832,6 +882,7 @@ select:focus {
   .poll-toolbar,
   .panel-heading,
   .composer-head,
+  .range-head,
   .creator-poll-summary {
     align-items: stretch;
     flex-direction: column;

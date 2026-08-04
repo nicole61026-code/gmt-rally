@@ -153,8 +153,15 @@ const I18N = {
     changeTimezone: "Change time zone",
     dateLabel: "Date",
     startTimeLabel: "Start time",
+    endTimeLabel: "End time",
     durationLabel: "Length",
+    intervalLabel: "Interval",
     addTime: "Add",
+    bulkRangeTitle: "Bulk add time range",
+    rangePresetFullDay: "Full day",
+    rangePresetWorkHours: "Work hours",
+    rangePresetCustom: "Custom",
+    addRange: "Add time range",
     createPoll: "Create voting link",
     resetForm: "Clear",
     shareLinkLabel: "Voting link",
@@ -203,7 +210,11 @@ const I18N = {
     titleRequired: "Add a meeting topic",
     slotRequired: "Add at least one candidate time",
     dateTimeRequired: "Choose a date and start time",
+    rangeTimeRequired: "Choose a date, start time, end time, and interval",
+    rangeEndAfterStart: "End time must be after start time",
+    rangeNoSlots: "No time slots fit inside that range",
     duplicateSlot: "That time is already on the list",
+    rangeAdded: ({ count }) => `Added ${count} time slots`,
     pollReady: "Voting link created",
     voteIncomplete: "Choose can or cannot for every time",
     nameRequired: "Add your name",
@@ -502,6 +513,7 @@ const state = {
   shareAdminUrl: "",
   creatorPolls: null,
   creatorLookupSearched: false,
+  rangePreset: "workHours",
   choices: {},
   votes: [],
   voteLocked: false,
@@ -522,6 +534,7 @@ async function init() {
   localStorage.setItem(STORAGE_KEYS.lang, "en");
   state.profile = loadProfile();
   state.slots = loadDraftSlots();
+  populateRangeTimeOptions();
   bindEvents();
   applyI18n();
   await routeFromHash();
@@ -554,6 +567,11 @@ function cacheElements() {
     "slotTime",
     "slotDuration",
     "addSlotButton",
+    "rangeDate",
+    "rangeStartTime",
+    "rangeEndTime",
+    "rangeInterval",
+    "addRangeButton",
     "slotList",
     "slotCount",
     "createPollButton",
@@ -607,6 +625,18 @@ function bindEvents() {
   els.timezoneSearch.addEventListener("input", renderTimezoneResults);
   els.timezoneResults.addEventListener("click", onTimezoneOptionClick);
   els.addSlotButton.addEventListener("click", addSlot);
+  els.addRangeButton.addEventListener("click", addRangeSlots);
+  document.querySelectorAll("[data-range-preset]").forEach((button) => {
+    button.addEventListener("click", () => applyRangePreset(button.dataset.rangePreset));
+  });
+  [els.rangeStartTime, els.rangeEndTime, els.rangeInterval].forEach((input) => {
+    input.addEventListener("change", () => setRangePreset("custom"));
+  });
+  els.slotDate.addEventListener("change", () => {
+    if (!els.rangeDate.value) {
+      els.rangeDate.value = els.slotDate.value;
+    }
+  });
   els.slotList.addEventListener("click", onSlotListClick);
   els.createPollButton.addEventListener("click", createPoll);
   els.resetFormButton.addEventListener("click", resetForm);
@@ -1073,12 +1103,108 @@ function addSlot() {
   renderSlotList();
 }
 
+function addRangeSlots() {
+  if (!requireProfile()) return;
+  const date = els.rangeDate.value;
+  const startMinutes = parseRangeMinutes(els.rangeStartTime.value);
+  const endMinutes = parseRangeMinutes(els.rangeEndTime.value);
+  const interval = Number(els.rangeInterval.value);
+
+  if (!date || startMinutes === null || endMinutes === null || ![30, 45, 60, 90, 120].includes(interval)) {
+    setMessage(els.createMessage, t("rangeTimeRequired"), "error");
+    els.rangeDate.focus();
+    return;
+  }
+
+  if (endMinutes <= startMinutes) {
+    setMessage(els.createMessage, t("rangeEndAfterStart"), "error");
+    els.rangeEndTime.focus();
+    return;
+  }
+
+  const existing = new Set(state.slots.map((slot) => `${slot.startUtc}:${slot.duration}`));
+  const newSlots = [];
+  let attemptedSlots = 0;
+
+  for (let cursor = startMinutes; cursor + interval <= endMinutes; cursor += interval) {
+    attemptedSlots += 1;
+    const time = minutesToRangeTime(cursor);
+    const startUtc = zonedTimeToUtc(date, time, state.profile.timeZone).toISOString();
+    const key = `${startUtc}:${interval}`;
+    if (existing.has(key)) continue;
+    existing.add(key);
+    newSlots.push({
+      id: createId("slot"),
+      startUtc,
+      duration: interval
+    });
+  }
+
+  if (!attemptedSlots) {
+    setMessage(els.createMessage, t("rangeNoSlots"), "error");
+    return;
+  }
+
+  if (!newSlots.length) {
+    setMessage(els.createMessage, t("duplicateSlot"), "error");
+    return;
+  }
+
+  state.slots.push(...newSlots);
+  state.slots.sort((a, b) => new Date(a.startUtc) - new Date(b.startUtc));
+  saveDraft();
+  setMessage(els.createMessage, t("rangeAdded", { count: newSlots.length }), "success");
+  renderSlotList();
+}
+
 function onSlotListClick(event) {
   const button = event.target.closest("[data-delete-slot]");
   if (!button) return;
   state.slots = state.slots.filter((slot) => slot.id !== button.dataset.deleteSlot);
   saveDraft();
   renderSlotList();
+}
+
+function populateRangeTimeOptions() {
+  if (!els.rangeStartTime || !els.rangeEndTime) return;
+  const startOptions = [];
+  const endOptions = [];
+  for (let minutes = 0; minutes < 24 * 60; minutes += 15) {
+    startOptions.push(`<option value="${minutesToRangeTime(minutes)}">${minutesToRangeTime(minutes)}</option>`);
+  }
+  for (let minutes = 15; minutes <= 24 * 60; minutes += 15) {
+    endOptions.push(`<option value="${minutesToRangeTime(minutes)}">${minutesToRangeTime(minutes)}</option>`);
+  }
+  els.rangeStartTime.innerHTML = startOptions.join("");
+  els.rangeEndTime.innerHTML = endOptions.join("");
+}
+
+function applyRangePreset(preset) {
+  const nextPreset = ["fullDay", "workHours", "custom"].includes(preset) ? preset : "custom";
+  setRangePreset(nextPreset);
+
+  if (nextPreset === "fullDay") {
+    els.rangeStartTime.value = "00:00";
+    els.rangeEndTime.value = "24:00";
+    els.rangeInterval.value = "60";
+  }
+
+  if (nextPreset === "workHours") {
+    els.rangeStartTime.value = "09:00";
+    els.rangeEndTime.value = "18:00";
+    els.rangeInterval.value = "60";
+  }
+
+  if (!els.rangeDate.value) {
+    els.rangeDate.value = els.slotDate.value;
+  }
+}
+
+function setRangePreset(preset) {
+  state.rangePreset = preset;
+  document.querySelectorAll("[data-range-preset]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.rangePreset === preset);
+  });
 }
 
 async function createPoll() {
@@ -1484,8 +1610,11 @@ function requireProfile() {
 function setDefaultSlotInputs() {
   const zone = state.profile?.timeZone || state.detectedTimeZone;
   const tomorrow = new Date(Date.now() + 86400000);
-  els.slotDate.value = formatInputDate(tomorrow, zone);
+  const date = formatInputDate(tomorrow, zone);
+  els.slotDate.value = date;
   els.slotTime.value = "09:00";
+  els.rangeDate.value = els.rangeDate.value || date;
+  applyRangePreset(state.rangePreset || "workHours");
 }
 
 function loadLanguage() {
@@ -1642,6 +1771,22 @@ function formatDateTime(value) {
     options.timeZone = state.profile.timeZone;
   }
   return new Intl.DateTimeFormat(locale, options).format(date);
+}
+
+function parseRangeMinutes(value) {
+  const match = /^(\d{2}):(\d{2})$/.exec(value || "");
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours === 24 && minutes === 0) return 24 * 60;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+function minutesToRangeTime(value) {
+  const hours = Math.floor(value / 60);
+  const minutes = value % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
 function formatInputDate(date, timeZone) {

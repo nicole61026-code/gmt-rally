@@ -119,6 +119,45 @@
                     <span data-i18n="addTime">加入</span>
                   </button>
                 </div>
+
+                <div class="range-composer" aria-labelledby="bulkRangeTitle">
+                  <div class="range-head">
+                    <h3 id="bulkRangeTitle" data-i18n="bulkRangeTitle">Bulk add time range</h3>
+                    <div class="range-presets" role="group" aria-label="Range presets">
+                      <button class="preset-button is-active" type="button" data-range-preset="workHours" data-i18n="rangePresetWorkHours">Work hours</button>
+                      <button class="preset-button" type="button" data-range-preset="fullDay" data-i18n="rangePresetFullDay">Full day</button>
+                      <button class="preset-button" type="button" data-range-preset="custom" data-i18n="rangePresetCustom">Custom</button>
+                    </div>
+                  </div>
+
+                  <div class="range-input-row">
+                    <label class="field">
+                      <span data-i18n="dateLabel">Date</span>
+                      <input id="rangeDate" type="date" />
+                    </label>
+                    <label class="field">
+                      <span data-i18n="startTimeLabel">Start time</span>
+                      <select id="rangeStartTime"></select>
+                    </label>
+                    <label class="field">
+                      <span data-i18n="endTimeLabel">End time</span>
+                      <select id="rangeEndTime"></select>
+                    </label>
+                    <label class="field">
+                      <span data-i18n="intervalLabel">Interval</span>
+                      <select id="rangeInterval">
+                        <option value="30">30 min</option>
+                        <option value="45">45 min</option>
+                        <option value="60" selected>60 min</option>
+                        <option value="90">90 min</option>
+                        <option value="120">120 min</option>
+                      </select>
+                    </label>
+                    <button class="secondary-button add-range-button" id="addRangeButton" type="button" data-i18n="addRange">
+                      Add time range
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div class="message-line" id="createMessage" role="status"></div>

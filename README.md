@@ -2,6 +2,8 @@
 
 A bilingual meeting time poll app with country-first time zone selection, GMT display, and realtime vote aggregation.
 
+Meeting creators can add a single candidate time or bulk-add a custom time range with full-day and work-hours presets.
+
 ## Run
 
 ```bash
