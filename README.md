@@ -4,7 +4,7 @@ An English meeting time poll app with country-first time zone selection, GMT dis
 
 Meeting creators can add a single candidate time or bulk-add a custom time range with full-day and work-hours presets.
 
-After voting, creators can confirm one candidate as the final meeting time. The app can send calendar invite emails with an attached `.ics` file through Resend, generate a standard calendar file, open a prefilled Gmail, Outlook web, or default mail app draft, and, for creator management links only, expose the attendee email list collected during voting.
+After voting, creators can confirm one candidate as the final meeting time. The app then generates a standard calendar file, opens a prefilled Gmail, Outlook web, or default mail app draft, and, for creator management links only, exposes the attendee email list collected during voting.
 
 ## Run
 
@@ -25,7 +25,6 @@ http://127.0.0.1:4173/
 - Creator poll lists are loaded with `GET /api/creators/:creatorName/polls`.
 - Votes are submitted with `POST /api/polls/:id/votes`.
 - Calendar invites are downloaded with `GET /api/polls/:id/calendar.ics` after a final time is confirmed.
-- Calendar invite emails are sent with `POST /api/polls/:id/notify` after Resend is configured.
 - Results update live through `GET /api/polls/:id/events` using Server-Sent Events.
 - Runtime data is stored in `data/polls.json`.
 
@@ -51,20 +50,6 @@ SUPABASE_SERVICE_ROLE_KEY=your-server-side-secret-or-service-role-key
 ```
 
 Keep `SUPABASE_SERVICE_ROLE_KEY` on the backend only. Do not put a Supabase secret or service-role key in frontend code.
-
-## Email Invites
-
-Automatic invite sending uses Resend and does not require a frontend API key. Configure these environment variables on the server host:
-
-```text
-EMAIL_PROVIDER=resend
-RESEND_API_KEY=your-resend-api-key
-EMAIL_FROM=GMT Rally <invites@yourdomain.com>
-```
-
-`RESEND_API_KEY` must be the real key copied from Resend and should start with `re_`. Do not paste placeholder text into Render.
-
-`EMAIL_FROM` must be a sender address allowed by your Resend account. Each attendee receives a separate email with a `.ics` calendar file attached.
 
 ## Public Deployment
 
@@ -102,4 +87,4 @@ This creator name is a lightweight private ID, not a login system. Anyone who kn
 
 Deleting a poll is permanent and also deletes its saved responses.
 
-Calendar notification note: automatic delivery requires `RESEND_API_KEY` and `EMAIL_FROM`. Without those environment variables, creators can still download the calendar file or open a prefilled email draft manually.
+Calendar notification note: this app prepares the attendee email list, email draft, and `.ics` calendar file. The creator sends the email from their own Gmail, Outlook, or default mail app.
