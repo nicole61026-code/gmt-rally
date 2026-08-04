@@ -35,13 +35,15 @@ class JsonPollStore {
     return this.db.polls[pollId] || null;
   }
 
-  async getPayload(pollId) {
+  async getPayload(pollId, options = {}) {
     const poll = await this.getPoll(pollId);
     if (!poll) return null;
     const { votes, ...publicPoll } = stripPrivatePollFields(poll);
     return {
       poll: publicPoll,
-      votes: Object.values(votes || {}).sort(sortVotesByName)
+      votes: Object.values(votes || {})
+        .map((vote) => (options.includePrivateVoteFields ? vote : stripPrivateVoteFields(vote)))
+        .sort(sortVotesByName)
     };
   }
 
@@ -131,14 +133,17 @@ class SupabasePollStore {
     return normalizePollRow(row);
   }
 
-  async getPayload(pollId) {
+  async getPayload(pollId, options = {}) {
     const poll = await this.getPoll(pollId);
     if (!poll) return null;
 
     const rows = await this.request(`/${this.voteTable}?poll_id=eq.${encodeFilterValue(pollId)}&select=*`);
     return {
       poll: stripPrivatePollFields(poll),
-      votes: rows.map(normalizeVoteRow).sort(sortVotesByName)
+      votes: rows
+        .map(normalizeVoteRow)
+        .map((vote) => (options.includePrivateVoteFields ? vote : stripPrivateVoteFields(vote)))
+        .sort(sortVotesByName)
     };
   }
 
@@ -262,6 +267,11 @@ function normalizePollRow(row) {
 function stripPrivatePollFields(poll) {
   const { adminTokenHash, adminToken, creatorKey, ...publicPoll } = poll;
   return publicPoll;
+}
+
+function stripPrivateVoteFields(vote) {
+  const { email, ...publicVote } = vote;
+  return publicVote;
 }
 
 function normalizeVoteRow(row) {

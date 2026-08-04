@@ -56,9 +56,15 @@ async function handleRequest(request, response) {
     return;
   }
 
+  const calendarMatch = url.pathname.match(/^\/api\/polls\/([^/]+)\/calendar\.ics$/);
+  if (calendarMatch && request.method === "GET") {
+    await sendCalendarInvite(request, response, calendarMatch[1]);
+    return;
+  }
+
   const pollMatch = url.pathname.match(/^\/api\/polls\/([^/]+)$/);
   if (pollMatch && request.method === "GET") {
-    await sendPoll(response, pollMatch[1]);
+    await sendPoll(request, response, pollMatch[1], url);
     return;
   }
 
@@ -173,8 +179,18 @@ async function updatePollDetails(request, response, pollId) {
   if (Object.prototype.hasOwnProperty.call(body, "meetingUrl")) {
     updates.meetingUrl = normalizeMeetingUrl(body.meetingUrl);
   }
+  if (Object.prototype.hasOwnProperty.call(body, "finalSlotId")) {
+    const finalSlotId = cleanString(body.finalSlotId, 80);
+    if (!poll.slots.some((slot) => slot.id === finalSlotId)) {
+      sendJson(response, 400, { error: "Choose one of the candidate meeting times." });
+      return;
+    }
+    updates.finalSlotId = finalSlotId;
+    updates.finalizedAt = new Date().toISOString();
+  }
 
-  const payload = await store.updatePoll(pollId, updates);
+  await store.updatePoll(pollId, updates);
+  const payload = await store.getPayload(pollId, { includePrivateVoteFields: true });
   await broadcastPoll(pollId);
   sendJson(response, 200, payload);
 }
@@ -219,10 +235,11 @@ async function submitVote(request, response, pollId) {
 
   const body = await readJsonBody(request);
   const name = cleanString(body.name, 70);
+  const email = cleanEmail(body.email);
   const profile = cleanProfile(body);
 
-  if (!name || !profile) {
-    sendJson(response, 400, { error: "Participant name and time zone are required." });
+  if (!name || !email || !profile) {
+    sendJson(response, 400, { error: "Participant name, email, and time zone are required." });
     return;
   }
 
@@ -256,6 +273,7 @@ async function submitVote(request, response, pollId) {
 
   const vote = {
     name,
+    email,
     countryCode: profile.countryCode,
     timeZone: profile.timeZone,
     choices,
@@ -266,8 +284,12 @@ async function submitVote(request, response, pollId) {
   sendJson(response, 200, payload);
 }
 
-async function sendPoll(response, pollId) {
-  const payload = await store.getPayload(pollId);
+async function sendPoll(request, response, pollId, url) {
+  const includePrivateVoteFields = await canReadPrivateVoteFields(
+    pollId,
+    cleanString(url.searchParams.get("adminToken") || request.headers["x-admin-token"], 200)
+  );
+  const payload = await store.getPayload(pollId, { includePrivateVoteFields });
   if (!payload) {
     sendJson(response, 404, { error: "Poll not found." });
     return;
@@ -275,8 +297,60 @@ async function sendPoll(response, pollId) {
   sendJson(response, 200, payload);
 }
 
+async function sendCalendarInvite(request, response, pollId) {
+  const poll = await store.getPoll(pollId);
+  if (!poll) {
+    sendJson(response, 404, { error: "Poll not found." });
+    return;
+  }
+
+  const finalSlot = poll.finalSlotId ? poll.slots.find((slot) => slot.id === poll.finalSlotId) : null;
+  if (!finalSlot) {
+    sendJson(response, 409, { error: "Final meeting time has not been confirmed yet." });
+    return;
+  }
+
+  const start = new Date(finalSlot.startUtc);
+  const end = new Date(start.getTime() + finalSlot.duration * 60000);
+  const baseUrl = getRequestBaseUrl(request);
+  const pollUrl = `${baseUrl}#poll=${encodeURIComponent(poll.id)}`;
+  const description = [poll.agenda, poll.meetingUrl ? `Meeting link: ${poll.meetingUrl}` : "", `Poll: ${pollUrl}`]
+    .filter(Boolean)
+    .join("\\n\\n");
+  const ics = buildIcs([
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//GMT Rally//Meeting Poll//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${icsEscape(`${poll.id}@gmt-rally`)}`,
+    `DTSTAMP:${formatIcsDate(new Date())}`,
+    `DTSTART:${formatIcsDate(start)}`,
+    `DTEND:${formatIcsDate(end)}`,
+    `SUMMARY:${icsEscape(poll.title)}`,
+    `DESCRIPTION:${icsEscape(description)}`,
+    poll.meetingUrl ? `LOCATION:${icsEscape(poll.meetingUrl)}` : "",
+    poll.meetingUrl ? `URL:${icsEscape(poll.meetingUrl)}` : "",
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ]);
+
+  response.writeHead(200, {
+    "Content-Type": "text/calendar; charset=utf-8",
+    "Content-Disposition": `attachment; filename="${safeFileName(poll.title)}.ics"`,
+    "Cache-Control": "no-store"
+  });
+  response.end(ics);
+}
+
 async function openEventStream(request, response, pollId) {
-  const payload = await store.getPayload(pollId);
+  const url = new URL(request.url || "/", `http://${request.headers.host || `${HOST}:${PORT}`}`);
+  const includePrivateVoteFields = await canReadPrivateVoteFields(
+    pollId,
+    cleanString(url.searchParams.get("adminToken") || request.headers["x-admin-token"], 200)
+  );
+  const payload = await store.getPayload(pollId, { includePrivateVoteFields });
   if (!payload) {
     sendJson(response, 404, { error: "Poll not found." });
     return;
@@ -289,7 +363,7 @@ async function openEventStream(request, response, pollId) {
     "X-Accel-Buffering": "no"
   });
 
-  const client = { response };
+  const client = { response, includePrivateVoteFields };
   const clients = CLIENTS.get(pollId) || new Set();
   clients.add(client);
   CLIENTS.set(pollId, clients);
@@ -311,11 +385,11 @@ async function openEventStream(request, response, pollId) {
 async function broadcastPoll(pollId) {
   const clients = CLIENTS.get(pollId);
   if (!clients?.size) return;
-  const payload = await store.getPayload(pollId);
-  if (!payload) return;
-  clients.forEach((client) => {
+  for (const client of clients) {
+    const payload = await store.getPayload(pollId, { includePrivateVoteFields: client.includePrivateVoteFields });
+    if (!payload) continue;
     writeEvent(client.response, "poll:update", payload);
-  });
+  }
 }
 
 function closePollClients(pollId) {
@@ -387,6 +461,11 @@ function cleanCreatorName(value) {
   return cleanString(value, 70).replace(/\s+/g, " ");
 }
 
+function cleanEmail(value) {
+  const email = cleanString(value, 254).toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
+}
+
 function makeCreatorKey(value) {
   return cleanCreatorName(value).toLowerCase();
 }
@@ -450,6 +529,50 @@ function isValidAdminToken(poll, token) {
   const expected = Buffer.from(poll.adminTokenHash, "hex");
   const actual = Buffer.from(hashToken(token), "hex");
   return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
+
+async function canReadPrivateVoteFields(pollId, token) {
+  if (!token) return false;
+  const poll = await store.getPoll(pollId);
+  return Boolean(poll && isValidAdminToken(poll, token));
+}
+
+function getRequestBaseUrl(request) {
+  const host = cleanString(request.headers["x-forwarded-host"] || request.headers.host, 200) || `localhost:${PORT}`;
+  const forwardedProto = cleanString(request.headers["x-forwarded-proto"], 20);
+  const proto = forwardedProto || (/^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(host) ? "http" : "https");
+  return `${proto}://${host}/`;
+}
+
+function buildIcs(lines) {
+  return lines.filter(Boolean).flatMap(foldIcsLine).join("\r\n") + "\r\n";
+}
+
+function foldIcsLine(line) {
+  const chunks = [];
+  let remaining = line;
+  while (remaining.length > 73) {
+    chunks.push(remaining.slice(0, 73));
+    remaining = ` ${remaining.slice(73)}`;
+  }
+  chunks.push(remaining);
+  return chunks;
+}
+
+function formatIcsDate(date) {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function icsEscape(value) {
+  return String(value || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function safeFileName(value) {
+  return cleanString(value, 80).replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "") || "meeting";
 }
 
 function sendJson(response, status, payload) {

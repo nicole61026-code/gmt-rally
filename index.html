@@ -242,6 +242,17 @@
             <div class="action-row">
               <button class="primary-button" id="savePollDetailsButton" type="button" data-i18n="saveMeetingDetails">儲存變更</button>
             </div>
+            <div class="finalize-tools">
+              <label class="field span-two">
+                <span data-i18n="finalSlotLabel">Final meeting time</span>
+                <select id="finalSlotSelect"></select>
+              </label>
+              <div class="action-row">
+                <button class="primary-button" id="confirmMeetingButton" type="button" data-i18n="confirmMeeting">Confirm meeting time</button>
+                <a class="secondary-button" id="calendarInviteLink" href="#" download data-i18n="downloadCalendarInvite" hidden>Download calendar invite</a>
+                <button class="secondary-button" id="copyAttendeeEmailsButton" type="button" data-i18n="copyAttendeeEmails">Copy attendee emails</button>
+              </div>
+            </div>
             <div class="message-line" id="detailsMessage" role="status"></div>
           </section>
 
@@ -253,6 +264,10 @@
             <label class="field participant-field">
               <span data-i18n="nameLabel">姓名</span>
               <input id="participantName" type="text" maxlength="70" data-i18n-placeholder="namePlaceholder" placeholder="你的名字" />
+            </label>
+            <label class="field participant-field">
+              <span data-i18n="emailLabel">Email</span>
+              <input id="participantEmail" type="email" maxlength="254" data-i18n-placeholder="emailPlaceholder" placeholder="name@example.com" />
             </label>
             <div class="vote-slot-list" id="voteSlots"></div>
             <div class="message-line" id="voteMessage" role="status"></div>

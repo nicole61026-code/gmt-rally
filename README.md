@@ -4,6 +4,8 @@ A bilingual meeting time poll app with country-first time zone selection, GMT di
 
 Meeting creators can add a single candidate time or bulk-add a custom time range with full-day and work-hours presets.
 
+After voting, creators can confirm one candidate as the final meeting time. The app then generates a standard `.ics` calendar invite and, for creator management links only, exposes the attendee email list collected during voting.
+
 ## Run
 
 ```bash
@@ -22,6 +24,7 @@ http://127.0.0.1:4173/
 - Polls are created with `POST /api/polls`.
 - Creator poll lists are loaded with `GET /api/creators/:creatorName/polls`.
 - Votes are submitted with `POST /api/polls/:id/votes`.
+- Calendar invites are downloaded with `GET /api/polls/:id/calendar.ics` after a final time is confirmed.
 - Results update live through `GET /api/polls/:id/events` using Server-Sent Events.
 - Runtime data is stored in `data/polls.json`.
 
@@ -83,3 +86,5 @@ Creators also enter a creator name / ID when creating a poll. The homepage looku
 This creator name is a lightweight private ID, not a login system. Anyone who knows it can look up the creator management links, so use a name or phrase that is not easy to guess.
 
 Deleting a poll is permanent and also deletes its saved responses.
+
+Calendar notification note: the current app creates the calendar invite file and attendee email list. Fully automatic delivery to every attendee's inbox/calendar requires adding an email service such as Resend or SendGrid.

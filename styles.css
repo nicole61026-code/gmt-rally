@@ -706,6 +706,14 @@ select:focus {
   padding: clamp(18px, 3vw, 28px);
 }
 
+.finalize-tools {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
 .participant-field {
   max-width: 460px;
 }

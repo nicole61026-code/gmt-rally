@@ -177,6 +177,8 @@ const I18N = {
     participantTitle: "Your response",
     nameLabel: "Name",
     namePlaceholder: "Your name",
+    emailLabel: "Email",
+    emailPlaceholder: "name@example.com",
     submitVote: "Submit vote",
     backToVote: "Back to vote",
     copyPollLink: "Copy poll link",
@@ -218,6 +220,7 @@ const I18N = {
     pollReady: "Voting link created",
     voteIncomplete: "Choose can or cannot for every time",
     nameRequired: "Add your name",
+    emailRequired: "Add a valid email address",
     voteSaved: "Vote saved",
     voteLocked: "Your response has been submitted and can no longer be changed. You can view results directly.",
     voteAlreadySubmitted: "This name has already submitted a response and cannot overwrite the original choices.",
@@ -226,6 +229,15 @@ const I18N = {
     creatorOnly: "Creator only",
     saveMeetingDetails: "Save changes",
     detailsSaved: "Meeting details updated",
+    finalSlotLabel: "Final meeting time",
+    confirmMeeting: "Confirm meeting time",
+    finalMeetingSaved: "Final meeting time confirmed",
+    finalMeeting: "Final meeting",
+    downloadCalendarInvite: "Download calendar invite",
+    copyAttendeeEmails: "Copy attendee emails",
+    attendeeEmailsCopied: "Attendee emails copied",
+    noAttendeeEmails: "No attendee emails are available yet",
+    calendarInvite: "Calendar invite",
     manageDenied: "Only the creator management link can update meeting details",
     invalidPoll: "This poll link cannot be read",
     syncFailed: "Cannot connect to the sync server. Make sure the backend is running.",
@@ -599,6 +611,7 @@ function cacheElements() {
     "pollMeta",
     "resultsMeta",
     "participantName",
+    "participantEmail",
     "voteSlots",
     "voteMessage",
     "submitVoteButton",
@@ -607,6 +620,10 @@ function cacheElements() {
     "editMeetingAgenda",
     "editMeetingUrl",
     "savePollDetailsButton",
+    "finalSlotSelect",
+    "confirmMeetingButton",
+    "calendarInviteLink",
+    "copyAttendeeEmailsButton",
     "detailsMessage",
     "bestList",
     "resultsTableHead",
@@ -658,6 +675,8 @@ function bindEvents() {
     }
   });
   els.savePollDetailsButton.addEventListener("click", savePollDetails);
+  els.confirmMeetingButton.addEventListener("click", confirmMeetingTime);
+  els.copyAttendeeEmailsButton.addEventListener("click", copyAttendeeEmails);
   els.openPollButton.addEventListener("click", () => {
     if (state.pollEncoded) {
       window.location.hash = `poll=${state.pollEncoded}`;
@@ -733,8 +752,9 @@ async function routeFromHash() {
       if (adminToken) {
         saveAdminToken(encoded, adminToken);
       }
-      const payload = await apiFetchPoll(encoded);
-      state.adminToken = adminToken || loadAdminToken(encoded);
+      const savedAdminToken = adminToken || loadAdminToken(encoded);
+      const payload = await apiFetchPoll(encoded, savedAdminToken);
+      state.adminToken = savedAdminToken;
       applyRemotePayload(payload);
       state.choices = {};
       state.voteLocked = false;
@@ -1340,6 +1360,14 @@ function renderPollMeta(target, compact) {
   const link = poll.meetingUrl
     ? `<a class="meeting-link" href="${escapeHtml(poll.meetingUrl)}" target="_blank" rel="noreferrer">${escapeHtml(poll.meetingUrl)}</a>`
     : `<span>${escapeHtml(t("untitledLink"))}</span>`;
+  const finalSlot = poll.finalSlotId ? poll.slots.find((slot) => slot.id === poll.finalSlotId) : null;
+  const finalTime = finalSlot ? formatSlot(finalSlot, state.profile?.timeZone || state.detectedTimeZone) : null;
+  const finalDetails = finalTime
+    ? `
+      <span class="detail-chip">${escapeHtml(t("finalMeeting"))}: ${escapeHtml(finalTime.main)} · ${escapeHtml(finalTime.sub)}</span>
+      <span class="detail-chip">${escapeHtml(t("calendarInvite"))}: <a class="meeting-link" href="${escapeHtml(getCalendarInviteLink(poll))}">${escapeHtml(t("downloadCalendarInvite"))}</a></span>
+    `
+    : "";
 
   target.classList.toggle("compact", compact);
   target.innerHTML = `
@@ -1351,6 +1379,7 @@ function renderPollMeta(target, compact) {
     <div class="poll-details">
       <span class="detail-chip">${escapeHtml(t("creatorLabel"))}: ${escapeHtml(creatorName)}${escapeHtml(creatorCountry)} · ${escapeHtml(creatorGmt)}</span>
       <span class="detail-chip">${escapeHtml(t("meetingLink"))}: ${link}</span>
+      ${finalDetails}
     </div>
   `;
 }
@@ -1370,6 +1399,23 @@ function renderAdminTools() {
   if (document.activeElement !== els.editMeetingUrl) {
     els.editMeetingUrl.value = state.poll.meetingUrl || "";
   }
+  renderFinalMeetingTools();
+}
+
+function renderFinalMeetingTools() {
+  if (!state.poll || !els.finalSlotSelect) return;
+  const zone = state.profile?.timeZone || state.poll.creator?.timeZone || state.detectedTimeZone;
+  const currentValue = els.finalSlotSelect.value || state.poll.finalSlotId || state.poll.slots[0]?.id || "";
+  els.finalSlotSelect.innerHTML = state.poll.slots
+    .map((slot) => {
+      const time = formatSlot(slot, zone);
+      return `<option value="${escapeHtml(slot.id)}">${escapeHtml(time.main)} · ${escapeHtml(time.sub)}</option>`;
+    })
+    .join("");
+  els.finalSlotSelect.value = state.poll.slots.some((slot) => slot.id === currentValue) ? currentValue : state.poll.slots[0]?.id || "";
+  els.calendarInviteLink.hidden = !state.poll.finalSlotId;
+  els.calendarInviteLink.href = state.poll.finalSlotId ? getCalendarInviteLink(state.poll) : "#";
+  els.copyAttendeeEmailsButton.disabled = !getAttendeeEmails().length;
 }
 
 async function savePollDetails() {
@@ -1400,6 +1446,40 @@ async function savePollDetails() {
   }
 }
 
+async function confirmMeetingTime() {
+  if (!state.poll || !state.adminToken) {
+    setMessage(els.detailsMessage, t("manageDenied"), "error");
+    return;
+  }
+  const finalSlotId = els.finalSlotSelect.value;
+  if (!state.poll.slots.some((slot) => slot.id === finalSlotId)) {
+    setMessage(els.detailsMessage, t("rangeTimeRequired"), "error");
+    return;
+  }
+
+  try {
+    const payload = await apiUpdatePoll(state.poll.id, {
+      finalSlotId,
+      adminToken: state.adminToken
+    });
+    applyRemotePayload(payload);
+    renderAll();
+    setMessage(els.detailsMessage, t("finalMeetingSaved"), "success");
+  } catch (error) {
+    setMessage(els.detailsMessage, t("manageDenied"), "error");
+  }
+}
+
+async function copyAttendeeEmails() {
+  const emails = getAttendeeEmails();
+  if (!emails.length) {
+    setMessage(els.detailsMessage, t("noAttendeeEmails"), "error");
+    return;
+  }
+  await copyText(emails.join(", "), els.detailsMessage);
+  setMessage(els.detailsMessage, t("attendeeEmailsCopied"), "success");
+}
+
 function prepareVoteState() {
   if (!state.poll) return;
   const lastName = localStorage.getItem(lastNameKey(state.poll.id)) || "";
@@ -1416,6 +1496,10 @@ function renderVote() {
     els.participantName.value = localStorage.getItem(lastNameKey(state.poll.id)) || "";
   }
   applyVoteForName(els.participantName.value.trim(), false);
+  const existingVote = getVoteByName(els.participantName.value.trim());
+  if (existingVote?.email && document.activeElement !== els.participantEmail) {
+    els.participantEmail.value = existingVote.email;
+  }
   const zone = state.profile?.timeZone || state.detectedTimeZone;
   const disabled = state.voteLocked ? "disabled" : "";
   els.voteSlots.innerHTML = state.poll.slots
@@ -1451,6 +1535,9 @@ function applyVoteForName(name, replaceChoices = true) {
   if (existingVote || replaceChoices) {
     state.choices = { ...(existingVote?.choices || {}) };
   }
+  if (existingVote?.email && document.activeElement !== els.participantEmail) {
+    els.participantEmail.value = existingVote.email;
+  }
 }
 
 function getVoteByName(name) {
@@ -1460,6 +1547,7 @@ function getVoteByName(name) {
 
 function updateVoteControls() {
   els.submitVoteButton.disabled = state.voteLocked;
+  els.participantEmail.disabled = state.voteLocked;
   els.submitVoteButton.textContent = state.voteLocked ? t("submittedVote") : t("submitVote");
   if (state.voteLocked) {
     setMessage(els.voteMessage, t("voteLocked"), "success");
@@ -1485,6 +1573,12 @@ async function submitVote() {
     els.participantName.focus();
     return;
   }
+  const email = cleanEmail(els.participantEmail.value);
+  if (!email) {
+    setMessage(els.voteMessage, t("emailRequired"), "error");
+    els.participantEmail.focus();
+    return;
+  }
 
   const existingVote = getVoteByName(name);
   if (existingVote) {
@@ -1505,6 +1599,7 @@ async function submitVote() {
 
   const vote = {
     name,
+    email,
     countryCode: state.profile.countryCode,
     timeZone: state.profile.timeZone,
     choices: { ...state.choices },
@@ -1888,6 +1983,10 @@ function getServerAdminPollLink(pollId, adminToken) {
   return `${getBaseUrl()}#poll=${encodeURIComponent(pollId)}&admin=${encodeURIComponent(adminToken)}`;
 }
 
+function getCalendarInviteLink(poll) {
+  return `${getBaseUrl()}api/polls/${encodeURIComponent(poll.id)}/calendar.ics`;
+}
+
 function getBaseUrl() {
   return window.location.href.split("#")[0];
 }
@@ -1898,6 +1997,11 @@ function isServerPollKey(value) {
 
 function cleanCreatorName(value) {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, 70);
+}
+
+function cleanEmail(value) {
+  const email = String(value || "").trim().toLowerCase().slice(0, 254);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
 }
 
 function makeCreatorKey(value) {
@@ -1935,6 +2039,17 @@ function getVotesList() {
   return Object.values(loadVotes());
 }
 
+function getAttendeeEmails() {
+  const seen = new Set();
+  return getVotesList()
+    .map((vote) => cleanEmail(vote.email))
+    .filter((email) => {
+      if (!email || seen.has(email)) return false;
+      seen.add(email);
+      return true;
+    });
+}
+
 function applyRemotePayload(payload) {
   validatePoll(payload.poll);
   state.poll = payload.poll;
@@ -1956,8 +2071,9 @@ async function apiCreatePoll(poll) {
   });
 }
 
-async function apiFetchPoll(pollId) {
-  return apiRequest(`/api/polls/${encodeURIComponent(pollId)}`);
+async function apiFetchPoll(pollId, adminToken = "") {
+  const query = adminToken ? `?adminToken=${encodeURIComponent(adminToken)}` : "";
+  return apiRequest(`/api/polls/${encodeURIComponent(pollId)}${query}`);
 }
 
 async function apiSubmitVote(pollId, vote) {
@@ -2006,7 +2122,8 @@ async function apiRequest(url, options = {}) {
 function connectRealtime() {
   closeRealtime();
   if (!state.serverBacked || !window.EventSource) return;
-  const source = new EventSource(`/api/polls/${encodeURIComponent(state.poll.id)}/events`);
+  const query = state.adminToken ? `?adminToken=${encodeURIComponent(state.adminToken)}` : "";
+  const source = new EventSource(`/api/polls/${encodeURIComponent(state.poll.id)}/events${query}`);
   state.realtimeSource = source;
 
   const handleUpdate = (event) => {
