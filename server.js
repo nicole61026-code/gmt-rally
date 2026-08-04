@@ -387,7 +387,17 @@ async function notifyAttendees(request, response, pollId) {
   }
 
   const baseUrl = getRequestBaseUrl(request);
-  const result = await sendInviteEmails({ poll, finalSlot, attendeeEmails, baseUrl, config });
+  let result;
+  try {
+    result = await sendInviteEmails({ poll, finalSlot, attendeeEmails, baseUrl, config });
+  } catch (error) {
+    console.error(error);
+    sendJson(response, 502, {
+      error: getEmailDeliveryErrorMessage(error)
+    });
+    return;
+  }
+
   const sentAt = new Date().toISOString();
   await store.updatePoll(pollId, {
     inviteSentAt: sentAt,
@@ -598,7 +608,7 @@ async function sendResendEmail({ config, to, subject, text, html, attachment, id
     },
     body: JSON.stringify({
       from: config.from,
-      to,
+      to: [to],
       subject,
       text,
       html,
@@ -608,10 +618,39 @@ async function sendResendEmail({ config, to, subject, text, html, attachment, id
 
   if (!apiResponse.ok) {
     const textBody = await apiResponse.text();
-    throw new Error(`Email delivery failed (${apiResponse.status}): ${textBody.slice(0, 500)}`);
+    const error = new Error(parseResendErrorMessage(apiResponse.status, textBody));
+    error.status = apiResponse.status;
+    throw error;
   }
 
   return apiResponse.json().catch(() => ({}));
+}
+
+function parseResendErrorMessage(status, textBody) {
+  try {
+    const payload = JSON.parse(textBody);
+    const message = payload.message || payload.error || payload.name;
+    if (message) {
+      return `Resend email delivery failed (${status}): ${message}`;
+    }
+  } catch (error) {
+    // Fall through to the plain text response.
+  }
+  return `Resend email delivery failed (${status}): ${cleanString(textBody, 500) || "Unknown delivery error"}`;
+}
+
+function getEmailDeliveryErrorMessage(error) {
+  const message = cleanString(error?.message, 700);
+  if (!message) {
+    return "Could not send calendar invite email. Check the Render logs and Resend settings.";
+  }
+  if (/api[_ -]?key|unauthorized|invalid/i.test(message)) {
+    return `${message}. Check RESEND_API_KEY in Render.`;
+  }
+  if (/domain|sender|from|verify|verified/i.test(message)) {
+    return `${message}. Check that EMAIL_FROM uses a sender verified in Resend.`;
+  }
+  return message;
 }
 
 function createInviteEmailContent({ poll, timeText, pollUrl }) {
