@@ -490,7 +490,7 @@ const ZONE_FALLBACKS = {
 };
 
 const state = {
-  lang: "zh",
+  lang: "en",
   profile: null,
   countryOptions: [],
   detectedTimeZone: "UTC",
@@ -519,6 +519,7 @@ async function init() {
   state.detectedTimeZone = getDetectedTimeZone();
   state.countryOptions = buildCountryOptions();
   state.lang = loadLanguage();
+  localStorage.setItem(STORAGE_KEYS.lang, "en");
   state.profile = loadProfile();
   state.slots = loadDraftSlots();
   bindEvents();
@@ -599,15 +600,6 @@ function cacheElements() {
 }
 
 function bindEvents() {
-  document.querySelectorAll("[data-lang]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.lang = button.dataset.lang;
-      localStorage.setItem(STORAGE_KEYS.lang, state.lang);
-      applyI18n();
-      renderAll();
-    });
-  });
-
   els.profileButton.addEventListener("click", () => openTimezoneGate(false));
   els.changeCreatorTimezoneButton.addEventListener("click", () => openTimezoneGate(false));
   els.changeParticipantTimezoneButton.addEventListener("click", () => openTimezoneGate(false));
@@ -671,15 +663,13 @@ function bindEvents() {
 }
 
 function applyI18n() {
-  document.documentElement.lang = state.lang === "zh" ? "zh-Hant" : "en";
+  state.lang = "en";
+  document.documentElement.lang = "en";
   document.querySelectorAll("[data-i18n]").forEach((node) => {
     node.textContent = t(node.dataset.i18n);
   });
   document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
     node.setAttribute("placeholder", t(node.dataset.i18nPlaceholder));
-  });
-  document.querySelectorAll("[data-lang]").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.lang === state.lang);
   });
 }
 
@@ -1499,9 +1489,8 @@ function setDefaultSlotInputs() {
 }
 
 function loadLanguage() {
-  const saved = localStorage.getItem(STORAGE_KEYS.lang);
-  if (saved === "zh" || saved === "en") return saved;
-  return navigator.language?.toLowerCase().startsWith("zh") ? "zh" : "en";
+  localStorage.setItem(STORAGE_KEYS.lang, "en");
+  return "en";
 }
 
 function loadProfile() {
