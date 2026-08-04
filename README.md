@@ -62,6 +62,8 @@ RESEND_API_KEY=your-resend-api-key
 EMAIL_FROM=GMT Rally <invites@yourdomain.com>
 ```
 
+`RESEND_API_KEY` must be the real key copied from Resend and should start with `re_`. Do not paste placeholder text into Render.
+
 `EMAIL_FROM` must be a sender address allowed by your Resend account. Each attendee receives a separate email with a `.ics` calendar file attached.
 
 ## Public Deployment

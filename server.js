@@ -372,9 +372,9 @@ async function notifyAttendees(request, response, pollId) {
   }
 
   const config = getEmailDeliveryConfig();
-  if (!config) {
+  if (!config.ok) {
     sendJson(response, 503, {
-      error: "Automatic email sending is not configured yet. Add RESEND_API_KEY and EMAIL_FROM in Render."
+      error: config.error
     });
     return;
   }
@@ -551,18 +551,33 @@ function collectAttendeeEmails(votes) {
 
 function getEmailDeliveryConfig() {
   const provider = cleanString(process.env.EMAIL_PROVIDER || (process.env.RESEND_API_KEY ? "resend" : ""), 30).toLowerCase();
-  if (!provider) return null;
+  const setupMessage = "Automatic email sending is not configured yet. Add EMAIL_PROVIDER=resend, RESEND_API_KEY, and EMAIL_FROM in Render.";
+  if (!provider) return { ok: false, error: setupMessage };
   if (provider !== "resend") {
-    return null;
+    return { ok: false, error: "EMAIL_PROVIDER must be set to resend." };
   }
   const apiKey = cleanString(process.env.RESEND_API_KEY, 300);
   const from = cleanString(process.env.EMAIL_FROM, 300);
-  if (!apiKey || !from) return null;
+  if (!apiKey || !from) return { ok: false, error: setupMessage };
+  if (!/^re_[\x21-\x7e]+$/.test(apiKey)) {
+    return {
+      ok: false,
+      error: "RESEND_API_KEY in Render must be the real Resend API key. It should start with re_ and must not contain Chinese placeholder text."
+    };
+  }
+  const organizerEmail = extractEmailAddress(from);
+  if (!organizerEmail) {
+    return {
+      ok: false,
+      error: "EMAIL_FROM in Render must be a real sender address, for example GMT Rally <invites@yourdomain.com>."
+    };
+  }
   return {
+    ok: true,
     provider,
     apiKey,
     from,
-    organizerEmail: extractEmailAddress(from) || "no-reply@gmt-rally.local"
+    organizerEmail
   };
 }
 
