@@ -714,6 +714,12 @@ select:focus {
   border-top: 1px solid var(--line);
 }
 
+#attendeeEmailList {
+  min-height: 72px;
+  color: #33413e;
+  background: #f8faf8;
+}
+
 .participant-field {
   max-width: 460px;
 }

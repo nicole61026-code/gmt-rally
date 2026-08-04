@@ -1,10 +1,10 @@
 # GMT Rally
 
-A bilingual meeting time poll app with country-first time zone selection, GMT display, and realtime vote aggregation.
+An English meeting time poll app with country-first time zone selection, GMT display, and realtime vote aggregation.
 
 Meeting creators can add a single candidate time or bulk-add a custom time range with full-day and work-hours presets.
 
-After voting, creators can confirm one candidate as the final meeting time. The app then generates a standard `.ics` calendar invite and, for creator management links only, exposes the attendee email list collected during voting.
+After voting, creators can confirm one candidate as the final meeting time. The app then generates a standard calendar file, opens a prefilled email draft with attendee emails in Bcc, and, for creator management links only, exposes the attendee email list collected during voting.
 
 ## Run
 
@@ -87,4 +87,4 @@ This creator name is a lightweight private ID, not a login system. Anyone who kn
 
 Deleting a poll is permanent and also deletes its saved responses.
 
-Calendar notification note: the current app creates the calendar invite file and attendee email list. Fully automatic delivery to every attendee's inbox/calendar requires adding an email service such as Resend or SendGrid.
+Calendar notification note: the current app creates the calendar file, attendee email list, and prefilled email draft. Fully automatic delivery to every attendee's inbox/calendar requires adding an email service such as Resend or SendGrid.

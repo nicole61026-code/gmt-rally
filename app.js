@@ -177,7 +177,7 @@ const I18N = {
     participantTitle: "Your response",
     nameLabel: "Name",
     namePlaceholder: "Your name",
-    emailLabel: "Email",
+    emailLabel: "Email required",
     emailPlaceholder: "name@example.com",
     submitVote: "Submit vote",
     backToVote: "Back to vote",
@@ -231,11 +231,15 @@ const I18N = {
     detailsSaved: "Meeting details updated",
     finalSlotLabel: "Final meeting time",
     confirmMeeting: "Confirm meeting time",
-    finalMeetingSaved: "Final meeting time confirmed",
+    finalMeetingSaved: "Final meeting time confirmed. You can now email every attendee who provided an email address.",
     finalMeeting: "Final meeting",
-    downloadCalendarInvite: "Download calendar invite",
+    emailAttendees: "Email attendees",
+    emailDraftReady: "Email draft opened with attendee emails in Bcc.",
+    downloadCalendarInvite: "Download calendar file",
     copyAttendeeEmails: "Copy attendee emails",
-    attendeeEmailsCopied: "Attendee emails copied",
+    attendeeEmailsLabel: "Attendee emails",
+    attendeeEmailsPlaceholder: "Emails will appear after participants vote",
+    attendeeEmailsCopied: ({ count }) => `Copied ${count} attendee emails`,
     noAttendeeEmails: "No attendee emails are available yet",
     calendarInvite: "Calendar invite",
     manageDenied: "Only the creator management link can update meeting details",
@@ -622,8 +626,10 @@ function cacheElements() {
     "savePollDetailsButton",
     "finalSlotSelect",
     "confirmMeetingButton",
+    "emailAttendeesLink",
     "calendarInviteLink",
     "copyAttendeeEmailsButton",
+    "attendeeEmailList",
     "detailsMessage",
     "bestList",
     "resultsTableHead",
@@ -677,6 +683,9 @@ function bindEvents() {
   els.savePollDetailsButton.addEventListener("click", savePollDetails);
   els.confirmMeetingButton.addEventListener("click", confirmMeetingTime);
   els.copyAttendeeEmailsButton.addEventListener("click", copyAttendeeEmails);
+  els.emailAttendeesLink.addEventListener("click", () => {
+    setMessage(els.detailsMessage, t("emailDraftReady"), "success");
+  });
   els.openPollButton.addEventListener("click", () => {
     if (state.pollEncoded) {
       window.location.hash = `poll=${state.pollEncoded}`;
@@ -1365,7 +1374,7 @@ function renderPollMeta(target, compact) {
   const finalDetails = finalTime
     ? `
       <span class="detail-chip">${escapeHtml(t("finalMeeting"))}: ${escapeHtml(finalTime.main)} · ${escapeHtml(finalTime.sub)}</span>
-      <span class="detail-chip">${escapeHtml(t("calendarInvite"))}: <a class="meeting-link" href="${escapeHtml(getCalendarInviteLink(poll))}">${escapeHtml(t("downloadCalendarInvite"))}</a></span>
+      <span class="detail-chip">${escapeHtml(t("calendarInvite"))}: <a class="meeting-link" href="${escapeHtml(getCalendarInviteLink(poll, false))}">${escapeHtml(t("downloadCalendarInvite"))}</a></span>
     `
     : "";
 
@@ -1413,9 +1422,14 @@ function renderFinalMeetingTools() {
     })
     .join("");
   els.finalSlotSelect.value = state.poll.slots.some((slot) => slot.id === currentValue) ? currentValue : state.poll.slots[0]?.id || "";
+  const emails = getAttendeeEmails();
+  els.attendeeEmailList.value = emails.join(", ");
+  els.attendeeEmailList.placeholder = t("attendeeEmailsPlaceholder");
+  els.emailAttendeesLink.hidden = !state.poll.finalSlotId || !emails.length;
+  els.emailAttendeesLink.href = state.poll.finalSlotId ? getEmailInviteLink(state.poll, emails) : "#";
   els.calendarInviteLink.hidden = !state.poll.finalSlotId;
-  els.calendarInviteLink.href = state.poll.finalSlotId ? getCalendarInviteLink(state.poll) : "#";
-  els.copyAttendeeEmailsButton.disabled = !getAttendeeEmails().length;
+  els.calendarInviteLink.href = state.poll.finalSlotId ? getCalendarInviteLink(state.poll, true) : "#";
+  els.copyAttendeeEmailsButton.disabled = !emails.length;
 }
 
 async function savePollDetails() {
@@ -1476,8 +1490,8 @@ async function copyAttendeeEmails() {
     setMessage(els.detailsMessage, t("noAttendeeEmails"), "error");
     return;
   }
-  await copyText(emails.join(", "), els.detailsMessage);
-  setMessage(els.detailsMessage, t("attendeeEmailsCopied"), "success");
+  const copied = await copyText(emails.join(", "), null);
+  setMessage(els.detailsMessage, copied ? t("attendeeEmailsCopied", { count: emails.length }) : t("copyFailed"), copied ? "success" : "error");
 }
 
 function prepareVoteState() {
@@ -1983,8 +1997,31 @@ function getServerAdminPollLink(pollId, adminToken) {
   return `${getBaseUrl()}#poll=${encodeURIComponent(pollId)}&admin=${encodeURIComponent(adminToken)}`;
 }
 
-function getCalendarInviteLink(poll) {
-  return `${getBaseUrl()}api/polls/${encodeURIComponent(poll.id)}/calendar.ics`;
+function getCalendarInviteLink(poll, includeAdminToken = false) {
+  const adminQuery = includeAdminToken && state.adminToken ? `?adminToken=${encodeURIComponent(state.adminToken)}` : "";
+  return `${getBaseUrl()}api/polls/${encodeURIComponent(poll.id)}/calendar.ics${adminQuery}`;
+}
+
+function getEmailInviteLink(poll, emails) {
+  const finalSlot = poll.finalSlotId ? poll.slots.find((slot) => slot.id === poll.finalSlotId) : null;
+  const finalTime = finalSlot ? formatSlot(finalSlot, state.profile?.timeZone || state.detectedTimeZone) : null;
+  const subject = `Confirmed: ${poll.title}`;
+  const bodyLines = [
+    `Hi,`,
+    "",
+    `The meeting has been confirmed.`,
+    "",
+    `Topic: ${poll.title}`,
+    `Time: ${finalTime ? `${finalTime.main} (${finalTime.sub})` : "Confirmed time"}`,
+    ...(poll.meetingUrl ? [`Meeting link: ${poll.meetingUrl}`] : []),
+    `Calendar invite: ${getCalendarInviteLink(poll, false)}`,
+    "",
+    `Poll results: ${getPollLink(poll)}`,
+    "",
+    `Thank you.`
+  ];
+  const body = bodyLines.join("\n");
+  return `mailto:?bcc=${encodeURIComponent(emails.join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 function getBaseUrl() {
@@ -2183,16 +2220,18 @@ function createId(prefix) {
 }
 
 async function copyText(text, messageElement) {
-  if (!text) return;
+  if (!text) return false;
   try {
     await navigator.clipboard.writeText(text);
     if (messageElement) {
       setMessage(messageElement, t("copied"), "success");
     }
+    return true;
   } catch (error) {
     if (messageElement) {
       setMessage(messageElement, t("copyFailed"), "error");
     }
+    return false;
   }
 }
 

@@ -314,15 +314,19 @@ async function sendCalendarInvite(request, response, pollId) {
   const end = new Date(start.getTime() + finalSlot.duration * 60000);
   const baseUrl = getRequestBaseUrl(request);
   const pollUrl = `${baseUrl}#poll=${encodeURIComponent(poll.id)}`;
+  const url = new URL(request.url || "/", `http://${request.headers.host || `${HOST}:${PORT}`}`);
+  const includeAttendees = isValidAdminToken(poll, cleanString(url.searchParams.get("adminToken"), 200));
+  const privatePayload = includeAttendees ? await store.getPayload(pollId, { includePrivateVoteFields: true }) : null;
+  const attendeeEmails = includeAttendees ? collectAttendeeEmails(privatePayload?.votes || []) : [];
   const description = [poll.agenda, poll.meetingUrl ? `Meeting link: ${poll.meetingUrl}` : "", `Poll: ${pollUrl}`]
     .filter(Boolean)
-    .join("\\n\\n");
+    .join("\n\n");
   const ics = buildIcs([
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//GMT Rally//Meeting Poll//EN",
     "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
+    attendeeEmails.length ? "METHOD:REQUEST" : "METHOD:PUBLISH",
     "BEGIN:VEVENT",
     `UID:${icsEscape(`${poll.id}@gmt-rally`)}`,
     `DTSTAMP:${formatIcsDate(new Date())}`,
@@ -332,12 +336,15 @@ async function sendCalendarInvite(request, response, pollId) {
     `DESCRIPTION:${icsEscape(description)}`,
     poll.meetingUrl ? `LOCATION:${icsEscape(poll.meetingUrl)}` : "",
     poll.meetingUrl ? `URL:${icsEscape(poll.meetingUrl)}` : "",
+    attendeeEmails.length ? `ORGANIZER;CN=${icsEscape(poll.creatorName || "GMT Rally")}:mailto:no-reply@gmt-rally.local` : "",
+    ...attendeeEmails.map((email) => `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${icsEscape(email)}`),
+    "STATUS:CONFIRMED",
     "END:VEVENT",
     "END:VCALENDAR"
   ]);
 
   response.writeHead(200, {
-    "Content-Type": "text/calendar; charset=utf-8",
+    "Content-Type": `text/calendar; method=${attendeeEmails.length ? "REQUEST" : "PUBLISH"}; charset=utf-8`,
     "Content-Disposition": `attachment; filename="${safeFileName(poll.title)}.ics"`,
     "Cache-Control": "no-store"
   });
@@ -464,6 +471,17 @@ function cleanCreatorName(value) {
 function cleanEmail(value) {
   const email = cleanString(value, 254).toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
+}
+
+function collectAttendeeEmails(votes) {
+  const seen = new Set();
+  return votes
+    .map((vote) => cleanEmail(vote.email))
+    .filter((email) => {
+      if (!email || seen.has(email)) return false;
+      seen.add(email);
+      return true;
+    });
 }
 
 function makeCreatorKey(value) {
