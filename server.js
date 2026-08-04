@@ -62,6 +62,12 @@ async function handleRequest(request, response) {
     return;
   }
 
+  const notifyMatch = url.pathname.match(/^\/api\/polls\/([^/]+)\/notify$/);
+  if (notifyMatch && request.method === "POST") {
+    await notifyAttendees(request, response, notifyMatch[1]);
+    return;
+  }
+
   const pollMatch = url.pathname.match(/^\/api\/polls\/([^/]+)$/);
   if (pollMatch && request.method === "GET") {
     await sendPoll(request, response, pollMatch[1], url);
@@ -187,6 +193,11 @@ async function updatePollDetails(request, response, pollId) {
     }
     updates.finalSlotId = finalSlotId;
     updates.finalizedAt = new Date().toISOString();
+    if (poll.finalSlotId !== finalSlotId) {
+      updates.inviteSentAt = null;
+      updates.inviteSentFinalSlotId = null;
+      updates.inviteSentCount = null;
+    }
   }
 
   await store.updatePoll(pollId, updates);
@@ -310,38 +321,18 @@ async function sendCalendarInvite(request, response, pollId) {
     return;
   }
 
-  const start = new Date(finalSlot.startUtc);
-  const end = new Date(start.getTime() + finalSlot.duration * 60000);
   const baseUrl = getRequestBaseUrl(request);
-  const pollUrl = `${baseUrl}#poll=${encodeURIComponent(poll.id)}`;
   const url = new URL(request.url || "/", `http://${request.headers.host || `${HOST}:${PORT}`}`);
   const includeAttendees = isValidAdminToken(poll, cleanString(url.searchParams.get("adminToken"), 200));
   const privatePayload = includeAttendees ? await store.getPayload(pollId, { includePrivateVoteFields: true }) : null;
   const attendeeEmails = includeAttendees ? collectAttendeeEmails(privatePayload?.votes || []) : [];
-  const description = [poll.agenda, poll.meetingUrl ? `Meeting link: ${poll.meetingUrl}` : "", `Poll: ${pollUrl}`]
-    .filter(Boolean)
-    .join("\n\n");
-  const ics = buildIcs([
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//GMT Rally//Meeting Poll//EN",
-    "CALSCALE:GREGORIAN",
-    attendeeEmails.length ? "METHOD:REQUEST" : "METHOD:PUBLISH",
-    "BEGIN:VEVENT",
-    `UID:${icsEscape(`${poll.id}@gmt-rally`)}`,
-    `DTSTAMP:${formatIcsDate(new Date())}`,
-    `DTSTART:${formatIcsDate(start)}`,
-    `DTEND:${formatIcsDate(end)}`,
-    `SUMMARY:${icsEscape(poll.title)}`,
-    `DESCRIPTION:${icsEscape(description)}`,
-    poll.meetingUrl ? `LOCATION:${icsEscape(poll.meetingUrl)}` : "",
-    poll.meetingUrl ? `URL:${icsEscape(poll.meetingUrl)}` : "",
-    attendeeEmails.length ? `ORGANIZER;CN=${icsEscape(poll.creatorName || "GMT Rally")}:mailto:no-reply@gmt-rally.local` : "",
-    ...attendeeEmails.map((email) => `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${icsEscape(email)}`),
-    "STATUS:CONFIRMED",
-    "END:VEVENT",
-    "END:VCALENDAR"
-  ]);
+  const ics = createCalendarInvite({
+    poll,
+    finalSlot,
+    attendeeEmails,
+    baseUrl,
+    organizerEmail: extractEmailAddress(process.env.EMAIL_FROM) || "no-reply@gmt-rally.local"
+  });
 
   response.writeHead(200, {
     "Content-Type": `text/calendar; method=${attendeeEmails.length ? "REQUEST" : "PUBLISH"}; charset=utf-8`,
@@ -349,6 +340,70 @@ async function sendCalendarInvite(request, response, pollId) {
     "Cache-Control": "no-store"
   });
   response.end(ics);
+}
+
+async function notifyAttendees(request, response, pollId) {
+  const poll = await store.getPoll(pollId);
+  if (!poll) {
+    sendJson(response, 404, { error: "Poll not found." });
+    return;
+  }
+
+  const body = await readJsonBody(request);
+  const adminToken = cleanString(body.adminToken || request.headers["x-admin-token"], 200);
+  if (!isValidAdminToken(poll, adminToken)) {
+    sendJson(response, 403, { error: "Creator management link is required." });
+    return;
+  }
+
+  const finalSlot = poll.finalSlotId ? poll.slots.find((slot) => slot.id === poll.finalSlotId) : null;
+  if (!finalSlot) {
+    sendJson(response, 409, { error: "Confirm a final meeting time before sending calendar invites." });
+    return;
+  }
+
+  if (poll.inviteSentAt && poll.inviteSentFinalSlotId === finalSlot.id) {
+    sendJson(response, 409, {
+      error: "Calendar invites were already sent for this final meeting time.",
+      alreadySent: true,
+      inviteSentAt: poll.inviteSentAt
+    });
+    return;
+  }
+
+  const config = getEmailDeliveryConfig();
+  if (!config) {
+    sendJson(response, 503, {
+      error: "Automatic email sending is not configured yet. Add RESEND_API_KEY and EMAIL_FROM in Render."
+    });
+    return;
+  }
+
+  const payload = await store.getPayload(pollId, { includePrivateVoteFields: true });
+  const attendeeEmails = collectAttendeeEmails(payload?.votes || []);
+  if (!attendeeEmails.length) {
+    sendJson(response, 409, { error: "No attendee emails are available yet." });
+    return;
+  }
+
+  const baseUrl = getRequestBaseUrl(request);
+  const result = await sendInviteEmails({ poll, finalSlot, attendeeEmails, baseUrl, config });
+  const sentAt = new Date().toISOString();
+  await store.updatePoll(pollId, {
+    inviteSentAt: sentAt,
+    inviteSentFinalSlotId: finalSlot.id,
+    inviteSentCount: result.count
+  });
+  const updatedPayload = await store.getPayload(pollId, { includePrivateVoteFields: true });
+  await broadcastPoll(pollId);
+  sendJson(response, 200, {
+    ...updatedPayload,
+    notification: {
+      sent: true,
+      count: result.count,
+      sentAt
+    }
+  });
 }
 
 async function openEventStream(request, response, pollId) {
@@ -482,6 +537,208 @@ function collectAttendeeEmails(votes) {
       seen.add(email);
       return true;
     });
+}
+
+function getEmailDeliveryConfig() {
+  const provider = cleanString(process.env.EMAIL_PROVIDER || (process.env.RESEND_API_KEY ? "resend" : ""), 30).toLowerCase();
+  if (!provider) return null;
+  if (provider !== "resend") {
+    return null;
+  }
+  const apiKey = cleanString(process.env.RESEND_API_KEY, 300);
+  const from = cleanString(process.env.EMAIL_FROM, 300);
+  if (!apiKey || !from) return null;
+  return {
+    provider,
+    apiKey,
+    from,
+    organizerEmail: extractEmailAddress(from) || "no-reply@gmt-rally.local"
+  };
+}
+
+async function sendInviteEmails({ poll, finalSlot, attendeeEmails, baseUrl, config }) {
+  const subject = `Confirmed: ${poll.title}`;
+  const timeText = formatMeetingTimeForEmail(poll, finalSlot);
+  const pollUrl = `${baseUrl}#poll=${encodeURIComponent(poll.id)}`;
+  const filename = `${safeFileName(poll.title)}.ics`;
+
+  for (const email of attendeeEmails) {
+    const ics = createCalendarInvite({
+      poll,
+      finalSlot,
+      attendeeEmails: [email],
+      baseUrl,
+      organizerEmail: config.organizerEmail
+    });
+    const { text, html } = createInviteEmailContent({ poll, timeText, pollUrl });
+    await sendResendEmail({
+      config,
+      to: email,
+      subject,
+      text,
+      html,
+      attachment: {
+        filename,
+        content: Buffer.from(ics, "utf8").toString("base64")
+      },
+      idempotencyKey: `invite-${poll.id}-${finalSlot.id}-${hashToken(email).slice(0, 16)}`
+    });
+  }
+
+  return { count: attendeeEmails.length };
+}
+
+async function sendResendEmail({ config, to, subject, text, html, attachment, idempotencyKey }) {
+  const apiResponse = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey
+    },
+    body: JSON.stringify({
+      from: config.from,
+      to,
+      subject,
+      text,
+      html,
+      attachments: [attachment]
+    })
+  });
+
+  if (!apiResponse.ok) {
+    const textBody = await apiResponse.text();
+    throw new Error(`Email delivery failed (${apiResponse.status}): ${textBody.slice(0, 500)}`);
+  }
+
+  return apiResponse.json().catch(() => ({}));
+}
+
+function createInviteEmailContent({ poll, timeText, pollUrl }) {
+  const lines = [
+    "Hi,",
+    "",
+    "The meeting has been confirmed.",
+    "",
+    `Topic: ${poll.title}`,
+    `Time: ${timeText}`,
+    poll.meetingUrl ? `Meeting link: ${poll.meetingUrl}` : null,
+    "",
+    "A calendar invite (.ics) is attached to this email. Open or accept it to add the meeting to your calendar.",
+    "",
+    `Poll results: ${pollUrl}`,
+    "",
+    "Thank you."
+  ].filter((line) => line !== null);
+
+  const html = `
+    <p>Hi,</p>
+    <p>The meeting has been confirmed.</p>
+    <p>
+      <strong>Topic:</strong> ${htmlEscape(poll.title)}<br>
+      <strong>Time:</strong> ${htmlEscape(timeText)}${poll.meetingUrl ? `<br><strong>Meeting link:</strong> <a href="${htmlEscape(poll.meetingUrl)}">${htmlEscape(poll.meetingUrl)}</a>` : ""}
+    </p>
+    <p>A calendar invite (.ics) is attached to this email. Open or accept it to add the meeting to your calendar.</p>
+    <p><a href="${htmlEscape(pollUrl)}">View poll results</a></p>
+  `;
+
+  return { text: lines.join("\n"), html };
+}
+
+function createCalendarInvite({ poll, finalSlot, attendeeEmails = [], baseUrl, organizerEmail }) {
+  const start = new Date(finalSlot.startUtc);
+  const end = new Date(start.getTime() + finalSlot.duration * 60000);
+  const pollUrl = `${baseUrl}#poll=${encodeURIComponent(poll.id)}`;
+  const description = [poll.agenda, poll.meetingUrl ? `Meeting link: ${poll.meetingUrl}` : "", `Poll: ${pollUrl}`]
+    .filter(Boolean)
+    .join("\n\n");
+
+  return buildIcs([
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//GMT Rally//Meeting Poll//EN",
+    "CALSCALE:GREGORIAN",
+    attendeeEmails.length ? "METHOD:REQUEST" : "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${icsEscape(`${poll.id}@gmt-rally`)}`,
+    `DTSTAMP:${formatIcsDate(new Date())}`,
+    `DTSTART:${formatIcsDate(start)}`,
+    `DTEND:${formatIcsDate(end)}`,
+    `SUMMARY:${icsEscape(poll.title)}`,
+    `DESCRIPTION:${icsEscape(description)}`,
+    poll.meetingUrl ? `LOCATION:${icsEscape(poll.meetingUrl)}` : "",
+    poll.meetingUrl ? `URL:${icsEscape(poll.meetingUrl)}` : "",
+    attendeeEmails.length ? `ORGANIZER;CN=${icsEscape(poll.creatorName || "GMT Rally")}:mailto:${icsEscape(organizerEmail)}` : "",
+    ...attendeeEmails.map((email) => `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${icsEscape(email)}`),
+    "STATUS:CONFIRMED",
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ]);
+}
+
+function formatMeetingTimeForEmail(poll, finalSlot) {
+  const zone = poll.creator?.timeZone || "UTC";
+  const start = new Date(finalSlot.startUtc);
+  const end = new Date(start.getTime() + finalSlot.duration * 60000);
+  return `${formatDateTimeInZone(start, zone)} - ${formatTimeInZone(end, zone)} (${zone}, ${formatGmtOffset(zone, start)})`;
+}
+
+function formatDateTimeInZone(date, timeZone) {
+  try {
+    return new Intl.DateTimeFormat("en", {
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZone
+    }).format(date);
+  } catch (error) {
+    return date.toISOString();
+  }
+}
+
+function formatTimeInZone(date, timeZone) {
+  try {
+    return new Intl.DateTimeFormat("en", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZone
+    }).format(date);
+  } catch (error) {
+    return date.toISOString();
+  }
+}
+
+function formatGmtOffset(timeZone, date) {
+  try {
+    const part = new Intl.DateTimeFormat("en", {
+      timeZone,
+      timeZoneName: "shortOffset"
+    })
+      .formatToParts(date)
+      .find((item) => item.type === "timeZoneName");
+    return part?.value || "GMT";
+  } catch (error) {
+    return "GMT";
+  }
+}
+
+function extractEmailAddress(value) {
+  const match = String(value || "").match(/<([^<>@\s]+@[^<>@\s]+\.[^<>@\s]+)>/);
+  return cleanEmail(match?.[1] || value);
+}
+
+function htmlEscape(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function makeCreatorKey(value) {

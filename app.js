@@ -240,6 +240,12 @@ const I18N = {
     emailProviderGmail: "Gmail",
     emailProviderOutlook: "Outlook web",
     emailProviderDefault: "Default mail app",
+    sendCalendarInvite: "Send calendar invite",
+    sendingCalendarInvite: "Sending calendar invite...",
+    calendarInviteSent: "Calendar invite sent",
+    calendarEmailSent: ({ count }) => `Sent calendar invite to ${count} attendees`,
+    calendarEmailAlreadySent: "Calendar invites were already sent for this final meeting time",
+    calendarEmailFailed: "Could not send calendar invite email",
     downloadCalendarInvite: "Download calendar file",
     copyAttendeeEmails: "Copy attendee emails",
     attendeeEmailsLabel: "Attendee emails",
@@ -632,6 +638,7 @@ function cacheElements() {
     "savePollDetailsButton",
     "finalSlotSelect",
     "confirmMeetingButton",
+    "sendCalendarInviteButton",
     "emailProviderSelect",
     "emailAttendeesLink",
     "calendarInviteLink",
@@ -689,6 +696,7 @@ function bindEvents() {
   });
   els.savePollDetailsButton.addEventListener("click", savePollDetails);
   els.confirmMeetingButton.addEventListener("click", confirmMeetingTime);
+  els.sendCalendarInviteButton.addEventListener("click", sendCalendarInviteEmail);
   els.copyAttendeeEmailsButton.addEventListener("click", copyAttendeeEmails);
   els.emailProviderSelect.addEventListener("change", () => {
     localStorage.setItem(STORAGE_KEYS.emailProvider, getEmailProvider());
@@ -1435,10 +1443,14 @@ function renderFinalMeetingTools() {
   els.finalSlotSelect.value = state.poll.slots.some((slot) => slot.id === currentValue) ? currentValue : state.poll.slots[0]?.id || "";
   const emails = getAttendeeEmails();
   const emailProvider = getEmailProvider();
+  const inviteSent = Boolean(state.poll.inviteSentAt && state.poll.inviteSentFinalSlotId === state.poll.finalSlotId);
   els.emailProviderSelect.value = emailProvider;
   els.emailProviderSelect.disabled = !state.poll.finalSlotId || !emails.length;
   els.attendeeEmailList.value = emails.join(", ");
   els.attendeeEmailList.placeholder = t("attendeeEmailsPlaceholder");
+  els.sendCalendarInviteButton.hidden = !state.poll.finalSlotId || !emails.length || !state.adminToken;
+  els.sendCalendarInviteButton.disabled = inviteSent;
+  els.sendCalendarInviteButton.textContent = inviteSent ? t("calendarInviteSent") : t("sendCalendarInvite");
   els.emailAttendeesLink.hidden = !state.poll.finalSlotId || !emails.length;
   els.emailAttendeesLink.href = state.poll.finalSlotId ? getEmailInviteLink(state.poll, emails, emailProvider) : "#";
   els.emailAttendeesLink.target = emailProvider === "mailto" ? "" : "_blank";
@@ -1496,6 +1508,30 @@ async function confirmMeetingTime() {
     setMessage(els.detailsMessage, t("finalMeetingSaved"), "success");
   } catch (error) {
     setMessage(els.detailsMessage, t("manageDenied"), "error");
+  }
+}
+
+async function sendCalendarInviteEmail() {
+  if (!state.poll || !state.adminToken) {
+    setMessage(els.detailsMessage, t("manageDenied"), "error");
+    return;
+  }
+  const emails = getAttendeeEmails();
+  if (!state.poll.finalSlotId || !emails.length) {
+    setMessage(els.detailsMessage, t("noAttendeeEmails"), "error");
+    return;
+  }
+
+  els.sendCalendarInviteButton.disabled = true;
+  els.sendCalendarInviteButton.textContent = t("sendingCalendarInvite");
+  try {
+    const payload = await apiNotifyAttendees(state.poll.id, state.adminToken);
+    applyRemotePayload(payload);
+    renderAll();
+    setMessage(els.detailsMessage, t("calendarEmailSent", { count: payload.notification?.count || emails.length }), "success");
+  } catch (error) {
+    setMessage(els.detailsMessage, error.payload?.error || error.message || t("calendarEmailFailed"), "error");
+    renderFinalMeetingTools();
   }
 }
 
@@ -2165,6 +2201,13 @@ async function apiUpdatePoll(pollId, updates) {
   return apiRequest(`/api/polls/${encodeURIComponent(pollId)}`, {
     method: "PATCH",
     body: JSON.stringify(updates)
+  });
+}
+
+async function apiNotifyAttendees(pollId, adminToken) {
+  return apiRequest(`/api/polls/${encodeURIComponent(pollId)}/notify`, {
+    method: "POST",
+    body: JSON.stringify({ adminToken })
   });
 }
 
