@@ -131,6 +131,7 @@ const I18N = {
     creatorLookupFailed: "Cannot look up polls right now. Check that the backend is deployed.",
     creatorPollLinkLabel: "Voting link",
     creatorManageLinkLabel: "Creator edit link",
+    openLink: "Open",
     deletePoll: "Delete",
     deletePollConfirm: ({ title }) => `Permanently delete "${title}"? All responses will be deleted too.`,
     deletePollDone: "Poll deleted",
@@ -914,6 +915,7 @@ function renderCreatorLookup() {
             <div class="copy-row">
               <input type="text" readonly value="${escapeHtml(voteLink)}" />
               <button class="secondary-button" type="button" data-copy-creator-link="${escapeHtml(voteLink)}">${escapeHtml(t("copyLink"))}</button>
+              <a class="secondary-button" href="${escapeHtml(voteLink)}" target="_blank" rel="noopener">${escapeHtml(t("openLink"))}</a>
             </div>
           </label>
           <label class="field creator-link-field">
@@ -921,6 +923,7 @@ function renderCreatorLookup() {
             <div class="copy-row">
               <input type="text" readonly value="${escapeHtml(manageLink)}" />
               <button class="secondary-button" type="button" data-copy-creator-link="${escapeHtml(manageLink)}">${escapeHtml(t("copyManageLink"))}</button>
+              <a class="secondary-button" href="${escapeHtml(manageLink)}" target="_blank" rel="noopener">${escapeHtml(t("openLink"))}</a>
             </div>
           </label>
         </article>
